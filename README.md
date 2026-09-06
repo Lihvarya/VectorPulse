@@ -1,10 +1,12 @@
-# VectorPulse Studio — 智能图片转 SVG & 动态矢量工坊
+# VectorPulse Studio — 让一幅画从虚无中长出来
 
 > UNIT-01 // RASTER-TO-VECTOR SYNTHESIZER · 工业硬件风矢量合成器工作站
 >
-> 把位图变成可缩放、可播放、可分享的矢量故事。
+> 这里的成品不是一张 SVG，而是一段“作画过程”：起稿、铺色、收尾，每一层都有落笔顺序。
 >
-> 双击即用 · VTracer 本地算力 · GSAP 时间轴 + CSS 双引擎降级 · `file://` 可直接运行
+> 静态矢量只是附带结果，时间轴才是本体。
+>
+> 双击即用 · VTracer 本地算力 · GSAP 时间轴 + CSS 双引擎 · `file://` 可直接运行
 
 ![HTML5](https://img.shields.io/badge/HTML5-zero_build-orange)
 ![WASM](https://img.shields.io/badge/VTracer-WASM_local-00c853)
@@ -13,20 +15,27 @@
 
 ## ✨ 这是什么？
 
-VectorPulse Studio 是一个纯前端单页应用：
+VectorPulse Studio 是一台“作画过程放映机”，不是格式转换器：
 
-1. **注入一张 PNG / JPG / WebP / BMP**（拖放 / 点击 / `Ctrl + V` 粘贴 / 空舞台点击）
-2. 本地用 **VTracer WASM** 秒级描摹为 **SVG**（图片不出本机）
-3. `Split 卷帘` / `Dual 并排（默认）` / `Mono 矢量` 三种监视视图实时预览
-4. 一键生成 **HAND-PAINT 手绘 / BLOOM 水彩绽放 / CYBER-BEAM 极光** 三种过程动画
-5. 导出 **SVG / 高清 PNG / 静态 HTML / 独立动画 HTML / Data URI**
+- 你给它一张位图，它先在本地算出矢量的图层结构；
+- 然后按落笔顺序，把 **虚无 → 线稿速写 → 逐层上色 → 尘埃落定** 演一遍给你看；
+- 笔尖走到哪里，画就长到哪里；scrub 拖到哪里，时间就回到哪里。
 
-最新版本亮点：
+所以请这样理解它的流水线：
 
-- **WASM 双轨加载**：`http(s)` 下优先外置 `vtracer_bg.wasm`（`instantiateStreaming` → `ArrayBuffer` 回退）极速启动，`file://` 下自动懒加载 `vtracer-fallback.js` 内嵌包，双击照跑
-- **双播放引擎**：GSAP CDN 就绪走 `GSAP TIMELINE`（真暂停 / 变速 / scrub / 笔尖跟随），离线或 CDN 被拦自动降级 `CSS FALLBACK`，观感对齐
-- **工业硬件风三舱布局**：左 ENGINE 机架 / 中中央舞台 / 右 SEQ + I/O 机架，桌面 `100dvh` 一屏，`body[data-state|data-view|data-engine]` 全局驱动
-- **重构后的 `app.js`**：IIFE + `Store` 单一状态 + `BodyState` + 视口引擎（`ResizeObserver` + rAF + 防抖），描摹前等待 `VTracer.ready`，无 ESM，`file://` 照跑
+1. **注入原片**：PNG / JPG / WebP / BMP，拖放、点击、`Ctrl + V`、空舞台直注都行；
+2. **本地解构**：VTracer WASM 在本机把像素解成按权重排序的 path 图层，图片不出本机；
+3. **观看诞生**：`HAND-PAINT 手绘 / BLOOM 水彩 / CYBER-BEAM 极光` 三种落笔逻辑，配铅笔打底与笔尖跟随；
+4. **带走过程**：一键导出独立动画 HTML，别人打开看到的也是同一场“诞生”，而不是一张死图。
+
+`SVG / PNG / 静态 HTML / Data URI` 照样能导，但它们只是这场过程的定格截图。
+
+它长这样：
+
+- **WASM 双轨加载**：`http(s)` 用外置 `vtracer_bg.wasm` 极速启动，`file://` 自动懒加载 `vtracer-fallback.js`，双击照跑；
+- **双播放引擎**：GSAP 时间轴（真暂停 / 变速 / scrub / 笔尖跟随）与 CSS 路径观感对齐，CDN 缺席自动切换；
+- **工业硬件风三舱**：左 ENGINE 机架调参，中央舞台看画诞生，右 SEQ + I/O 编排时间与导出，桌面 `100dvh` 一屏；
+- **`app.js`**：单一状态 + 视口自适应 + 描摹前等待 `VTracer.ready`，无构建，双击即演。
 
 ## 🚀 30 秒上手
 
@@ -45,9 +54,9 @@ python -m http.server 8000
 然后：
 
 1. 把图片拖到顶部 `INJECT SOURCE BITMAP` 槽，或点中央 `AWAITING BITMAP` 空舞台，或 `Ctrl + V` 粘贴
-2. 新手直接在左架 `MOD.01 Preset Deck` 选预设，会自动重算
-3. 默认 `Dual 并排` 对比 RAW vs SVG，也可切 `Split 卷帘` 拖 `↔` 手柄
-4. 点 `▶ Trigger 动态绘制` 预览（`Space` 播放/暂停，有 GSAP 时可拖 scrub），再点 `🚀 动画 HTML` 分享
+2. 在左架 `MOD.01 Preset Deck` 选一个预设，描摹会自动开始
+3. 先看 `Dual 并排` 的 RAW vs SVG，再切 `Split 卷帘` 拖 `↔` 手柄看边缘
+4. 点 `▶ Trigger 动态绘制` 看画长出来（`Space` 暂停，有 GSAP 时直接拖 scrub 回到任意落笔点），满意再点 `🚀 动画 HTML` 把整段过程发给别人
 
 > 大图会自动限边 `2048px` + 超采样，保证毫秒级转换不卡顿。描摹中 `body[data-state=busy]` 会锁定重复触发。
 
@@ -74,7 +83,7 @@ python -m http.server 8000
 
 任何手动推子 / 下拉改动都会自动切入 `MANUAL 自定义参数`（`markCustom()`）。
 
-### 3. 双引擎动效编排（本次大改）
+### 3. 双引擎动效编排
 
 右架 `MOD.03 Timeline Seq`：动效流派 / 步进层数 6~80 / 节拍时延 0.03~0.35s / 底层线稿速写 / **笔尖跟随** / `ENGINE:` 状态行。
 
@@ -96,9 +105,9 @@ python -m http.server 8000
 | 笔尖 | `penTip ✏` 跟随当前层绘制点（`getTotalLength/getPointAtLength/getBBox` + easeOutQuad） | 无笔尖 |
 | 层动画 | `applyLayerFrame()` 逐帧写行内 `clip-path/opacity/filter/transform`，复刻 CSS 语义，`LAYER_DUR 0.55s` 对齐 | CSS `.pg` 关键帧 |
 
-`renderAnimHosts()` 为双路径共用的 DOM 装配，保证预览与导出同构；`beam` 下只保留 `glow`（已去掉旧 `shine`）。
+`renderAnimHosts()` 为双路径共用的 DOM 装配，保证预览与导出同构；`beam` 下只保留 `glow`。
 
-### 4. 三种监视视图（默认已改为并排）
+### 4. 三种监视视图
 
 - **Dual 并排（默认）**：`RAW` canvas vs `SVG` 并排，双轨等比适配
 - **Split 卷帘**：拖 `↔` 滑块，原图 / 描摹无缝卷帘，带四角 `+` 取景框
@@ -177,7 +186,7 @@ VectorPulse/
 - 输入：`processFile`（`createImageBitmap` + 超采样 + 2048 限边 + `bmp.close()`），`initUploadChannels`（drop+empty 双入口 + 粘贴）
 - WASM 就绪：`vtracer.js:mountWasm/failWasm/boot/bootFromFallback/loadFallbackScript`，`app.js:triggerTrace` 等待 `VTracer.ready`（`WASM LOADING...`）
 - 描摹：`triggerTrace`（kill 旧轴 → 等 ready → `convertPixels` → stats → `renderSvgToContainers`），`setExportEnabled`
-- 视图：`setView/initViews`（含未提交改动：默认 `side`）
+- 视图：`setView/initViews`，默认 `side` 并排
 - GSAP 引擎：`hasGsap/LAYER_DUR/applyLayerFrame/GsapEngine(build/frame/followPen/finish/replay/kill)`，`renderAnimHosts/gsapPlay`
 - 播放器：`playAnimation`（有 GSAP 走 `gsapPlay` 否则 CSS），`togglePlay/setPlayIcon/stopTimer/initPlayer`（含 scrub 拖拽逻辑）
 - 导出：`downloadBlob/buildStaticHtml/buildAnimatedHtml/initExporters`
@@ -206,11 +215,11 @@ VectorPulse/
 | `sketch` | bool | beam 下强制关闭，其他风格叠加铅笔稿 |
 | `penFollow` | bool | 仅 GSAP 引擎有效，笔尖是否跟随（CSS 降级时隐藏） |
 
-## 🔒 隐私与离线（有变化）
+## 🔒 隐私与离线
 
-- **描摹算力仍 100% 本地**：WASM 在本机实例化，图片不出本机。只是包体从内嵌改为外置：`http(s)` 下会 `fetch vtracer_bg.wasm`（同目录静态文件，非上传），`file://` 下不 fetch、直接懒加载本地 `vtracer-fallback.js`
+- **描摹算力 100% 本地**：WASM 在本机实例化，图片不出本机。`http(s)` 下会 `fetch vtracer_bg.wasm`（同目录静态文件，非上传），`file://` 下不 fetch、直接懒加载本地 `vtracer-fallback.js`
 - **要 file:// 双击可用**：别删 `vtracer-fallback.js`，`vtracer.js` 会在 `location.protocol === 'file:'` 时跳过 fetch 直走 fallback；F12 报 wasm http 错误时也会自动 fallback
-- **新增可选 GSAP CDN**：`index.html` 引用 `jsdelivr gsap@3.12.5`。在线时获得 scrub / 真暂停 / 笔尖跟随；离线或被拦时 `bootstrap()` 自动切 CSS 降级，描摹 / 预览 / 导出不受影响
+- **可选 GSAP CDN**：`index.html` 引用 `jsdelivr gsap@3.12.5`。在线时获得 scrub / 真暂停 / 笔尖跟随；离线或被拦时自动切 CSS 路径，描摹 / 预览 / 导出不受影响
 - **要纯离线**：删掉 GSAP 那一行 CDN `<script>` 即可恒走 CSS 路径；导出的动画 HTML 本身不依赖 GSAP，可放心分享
 - 无统计、无后端、无字体外链。`*.wasm` 已在 `.gitattributes` 标 `binary`，避免换行符破坏二进制
 
@@ -231,7 +240,7 @@ VectorPulse/
 `vtracer.js` 还没 `mountWasm`。排查顺序：同目录是否有 `vtracer_bg.wasm` → 控制台是否有 `WASM init failed`（`initError`）→ `http` 是否返回 wasm MIME → `file://` 是否误删 `vtracer-fallback.js`。`vtracer-fallback.js` 头部注明 generated，勿手改。
 
 **Q: `vtracer-fallback.js` / `vtracer_bg.wasm` 能删一个吗？**
-不建议。`wasm` 是 http 主路径（快、可缓存），`fallback.js` 是 `file://` 生命线。仓库体积敏感可只留其一：只发 http 版留 wasm，只发双击包留 fallback，但 README 默认双轨都要。
+不建议。`wasm` 是 http 主路径（快、可缓存），`fallback.js` 是 `file://` 双击打开的生命线。只要两个都在，双轨自动选择，你不用管。
 
 **Q: scrub 拖不动 / 笔尖不显示？**
 先看 stats `ENG` 芯片：`GSAP` 才有 scrub + 笔尖；`CSS` 只有进度条。检查网络能否访问 jsdelivr，或是否勾选了 `笔尖跟随`。
@@ -239,8 +248,8 @@ VectorPulse/
 **Q: 变速后从头重播？**
 CSS 引擎会重播，GSAP 引擎是 `timeScale` 即时变速不重播，这是区分两者的最快方法。
 
-**Q: 默认为什么是并排而不是卷帘？**
-最新未提交改动把 `Store.view / body[data-view] / setView()` 默认从 `split` 切到 `side`，并排更适合一屏监视，卷帘按 `1` 键即回。
+**Q: 为什么默认是并排而不是卷帘？**
+并排适合一眼看清“原片 vs 诞生结果”，卷帘适合逐像素检查边缘。按 `1` 键即回卷帘。
 
 **Q: 描摹太慢 / 文件巨大？**
 降色彩精度、升杂斑滤波、超采样改 1X，或换 LOGO 预设。看 `PATHS / SIZE / CYCLE` 芯片调参。
@@ -253,21 +262,11 @@ CSS 引擎会重播，GSAP 引擎是 `timeScale` 即时变速不重播，这是�
 
 ## 🗺️ Roadmap
 
-- [x] GSAP 时间轴引擎 + scrub + 笔尖跟随（已落地，CSS 降级保留）
-- [x] 工业硬件风三舱 UI + 视口自适应（已落地）
 - [ ] 自定义调色板锁定 / 背景抠除
 - [ ] SVG 路径简化滑块（体积优化）
 - [ ] 导出 Lottie / SMIL
 - [ ] 批量队列转换
 - [ ] PWA 离线安装包（含 GSAP 本地化，彻底零网络）
-
-## 📝 更新日志
-
-- **b18aa9a WASM 外置 + 懒加载**：新增 `vtracer_bg.wasm` 外置主包 + `vtracer-fallback.js` 懒加载包，`vtracer.js` 改 `boot()` 双轨（`instantiateStreaming` → `ArrayBuffer` → fallback，`file://` 直走 fallback），`app.js:triggerTrace` 等待 `VTracer.ready`，`index.html` 加 wasm preload，`.gitattributes` 加 `*.wasm binary`
-- **60bcc4d 默认视图**：`split → side`（`Store.view`、`body[data-view]`、`setView('side')`、`diffBox hidden` / `sideWrap` 显示、tab active 同步）
-- **8e9d5af GSAP timeline engine**：`GsapEngine`（build/frame/follow/finish/replay/kill）+ `applyLayerFrame` + `penTip` + `scrub` + `timeScale` 变速 + `body[data-engine]` + GSAP CDN + CSS 接管禁用
-- **5f15ae9 Refactor + 工业硬件风**：IIFE + `Store/BodyState` + 视口引擎 + 双入口上传 + `setView` + 播放器重写 + 导出器收敛 + 快捷键 + 三舱布局 + `100dvh` 一屏
-- **88cb236 VTracer 集成**：`js/app.js → app.js`，新增 `vtracer.js`，删 `js/engine.js/js/animator.js` 与 `LICENSE`，`css/style.css → style.css`，README 大改
 
 ## 🤝 贡献
 
@@ -278,7 +277,7 @@ CSS 引擎会重播，GSAP 引擎是 `timeScale` 即时变速不重播，这是�
 
 ## 📄 License
 
-当前仓库无 `LICENSE` 文件（已在 `88cb236` 删除）。如需开源建议补 MIT；VTracer WASM 部分遵循其上游协议，商用前请确认原项目授权。
+当前仓库无 `LICENSE` 文件。如需开源建议补 MIT；VTracer WASM 部分遵循其上游协议，商用前请确认原项目授权。
 
 ## 🙏 致谢
 
@@ -288,4 +287,4 @@ CSS 引擎会重播，GSAP 引擎是 `timeScale` 即时变速不重播，这是�
 
 ---
 
-如果这个小工坊对你有用，点个 ⭐ 就是最大的支持。祝每一张位图，都能找到它的矢量心跳。
+如果这个小工坊对你有用，点个 ⭐ 就是最大的支持。祝每一张位图，都能被看见诞生。
