@@ -324,6 +324,15 @@ async function triggerTrace() {
   log('VTRACER CORE RUNNING...', true);
   await wait(30);
   try {
+    // WASM 双轨：外置 vtracer_bg.wasm 异步就绪，file:// 时懒加载 fallback
+    if (!window.VTracer || !window.VTracer.ready) throw new Error('WASM loader missing');
+    if (!window.VTRACER_WASM_READY) {
+      log('WASM LOADING...', true);
+      await window.VTracer.ready;
+    }
+    if (typeof window.VTracer.convertPixels !== 'function') {
+      throw window.VTracer.initError || new Error('WASM not ready');
+    }
     const t0 = performance.now();
     const cfg = {
       mode: $('mode').value,
