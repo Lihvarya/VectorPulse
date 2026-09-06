@@ -277,7 +277,7 @@ CSS 引擎会重播，GSAP 引擎是 `timeScale` 即时变速不重播，这是�
 
 ## 📄 License
 
-当前仓库无 `LICENSE` 文件。如需开源建议补 MIT；VTracer WASM 部分遵循其上游协议，商用前请确认原项目授权。
+ MIT
 
 ## 🙏 致谢
 
