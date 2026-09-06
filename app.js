@@ -317,6 +317,8 @@ function setExportEnabled(on) {
 
 async function triggerTrace() {
   if (!Store.src || Store.busy) return;
+  if (hasGsap()) GsapEngine.kill(); // 重算时废弃旧时间轴，避免写分离 DOM
+  $('stageWrap').classList.remove('playing');
   BodyState.set(true);
   setExportEnabled(false);
   log('VTRACER CORE RUNNING...', true);
@@ -341,6 +343,7 @@ async function triggerTrace() {
       `<span class="chip">PATHS <b>${pathCount}</b></span>` +
       `<span class="chip">SIZE <b>${kb}</b>KB</span>` +
       `<span class="chip">CYCLE <b>${ms}</b>ms</span>` +
+      `<span class="chip">ENG <b>${document.body.dataset.engine === 'gsap' ? 'GSAP' : 'CSS'}</b></span>` +
       `<span class="chip hide-sm">CANVAS <b>${Store.src.w}×${Store.src.h}</b></span>`;
 
     renderSvgToContainers(Store.svg);
@@ -396,27 +399,169 @@ function initViews() {
   });
 }
 
-/* ---------- 8. 播放器 ---------- */
-function stopTimer() { if (Store.animTimer) { clearTimeout(Store.animTimer); Store.animTimer = 0; } }
+/* ---------- 7b. GSAP 时间轴引擎（CDN 缺席时自动降级 CSS 路径） ---------- */
+const hasGsap = () => typeof window.gsap !== 'undefined';
+const LAYER_DUR = 0.55; // 与 CSS .pg .55s 对齐，保证双路径观感一致
 
-function setPlayIcon(playing) {
-  $('playIcon').style.display = playing ? 'none' : 'block';
-  $('pauseIcon').style.display = playing ? 'block' : 'none';
+// 按类别把局部进度 p∈[0,1] 映射为行内 clip/opacity，复刻 CSS 关键帧语义
+function applyLayerFrame(el, cls, p) {
+  if (p <= 0) { el.style.opacity = '0'; el.style.clipPath = 'none'; el.style.filter = ''; el.style.transform = ''; return; }
+  if (p >= 1) { el.style.opacity = '1'; el.style.clipPath = 'none'; el.style.filter = ''; el.style.transform = ''; return; }
+  el.style.opacity = clamp(p / 0.35, 0, 1).toFixed(3);
+  if (cls === 'dab') {
+    el.style.clipPath = `circle(${(p * 120).toFixed(1)}% at 50% 50%)`;
+  } else if (cls === 'wipe-l') {
+    const lx = (100 - p * 103).toFixed(1);
+    el.style.clipPath = `polygon(${lx}% 0, 103% 0, 103% 100%, ${lx}% 100%)`;
+  } else if (cls === 'wipe-d') {
+    const my = (p * 113).toFixed(1);
+    el.style.clipPath = `polygon(0 -3%, 100% -3%, 100% ${my}%, 0 ${my}%)`;
+  } else if (cls === 'bloom') {
+    el.style.clipPath = 'none';
+    el.style.filter = `blur(${((1 - p) * 8).toFixed(1)}px)`;
+    el.style.transform = `scale(${(1.04 - 0.04 * p).toFixed(3)})`;
+  } else {
+    const mx = (p * 113).toFixed(1);
+    el.style.clipPath = `polygon(-3% 0, ${mx}% 0, ${mx}% 100%, -3% 100%)`;
+  }
 }
 
-function playAnimation() {
-  if (!Store.svg || !Store.src || Store.busy) return;
-  const opts = readAnimOpts();
-  const anim = buildAnimationData(Store.svg, opts);
-  const isBeam = opts.style === 'beam';
+const GsapEngine = {
+  tween: null,
+  layers: [], // { els:[diffG, outG], cls, start, path, len, cx, cy, p }
+  svgEls: [],
+  total: 0,
+  isBeam: false,
+  scrubbing: false,
 
+  kill() {
+    if (this.tween) { try { this.tween.kill(); } catch (_) {} this.tween = null; }
+    this.layers = [];
+    this.svgEls = [];
+    const pen = $('penTip');
+    if (pen) pen.hidden = true;
+  },
+
+  build(anim, opts) {
+    this.kill();
+    this.isBeam = opts.style === 'beam';
+    this.total = this.isBeam ? 3.4 : anim.timing.total;
+    const hosts = [$('diffSvg'), $('pvOut')];
+    this.svgEls = hosts.map((h) => h.querySelector('svg')).filter(Boolean);
+    const perHost = hosts.map((h) => Array.from(h.querySelectorAll('.pg')));
+    const n = Math.min(...perHost.map((g) => g.length));
+    const T0 = anim.timing.T0 || 0;
+    for (let i = 0; i < n; i++) {
+      const els = perHost.map((g) => g[i]);
+      const cls = ['wipe-r', 'wipe-l', 'wipe-d', 'dab', 'bloom'].find((c) => els[0].classList.contains(c)) || 'wipe-r';
+      const entry = { els, cls, start: T0 + i * opts.stagger, path: null, len: 0, cx: 0.5, cy: 0.5, p: 0 };
+      try {
+        const p0 = els[0].querySelector('path');
+        if (p0) {
+          entry.path = p0;
+          entry.len = p0.getTotalLength();
+          const bb = p0.getBBox();
+          if (bb.width > 0 && bb.height > 0) {
+            entry.cx = (bb.x + bb.width / 2) / Store.src.w;
+            entry.cy = (bb.y + bb.height / 2) / Store.src.h;
+          }
+        }
+      } catch (_) { /* 几何不可用则用中心兜底 */ }
+      this.layers.push(entry);
+    }
+    this.frame(0);
+    const proxy = { t: 0 };
+    this.tween = window.gsap.to(proxy, {
+      t: this.total,
+      duration: this.total,
+      ease: 'none',
+      onUpdate: () => this.frame(proxy.t),
+      onComplete: () => this.finish(),
+    });
+    this.tween.timeScale(Number($('animSpeed').value) || 1);
+  },
+
+  frame(t) {
+    for (let i = 0; i < this.layers.length; i++) {
+      const L = this.layers[i];
+      L.p = clamp((t - L.start) / LAYER_DUR, 0, 1);
+      if (!this.isBeam) {
+        for (const el of L.els) applyLayerFrame(el, L.cls, L.p);
+      } else {
+        for (const el of L.els) el.style.opacity = L.p >= 1 ? '1' : '0';
+      }
+    }
+    if (this.isBeam) {
+      const q = clamp(t / this.total, 0, 1);
+      const pos = `${(100 - q * 100).toFixed(1)}% 0`;
+      for (const svg of this.svgEls) {
+        svg.style.webkitMaskPosition = pos;
+        svg.style.maskPosition = pos;
+      }
+    }
+    const ratio = clamp(t / this.total, 0, 1);
+    $('progressBar').style.width = (ratio * 100).toFixed(1) + '%';
+    if (!this.scrubbing) $('scrub').value = String(Math.round(ratio * 1000));
+    this.followPen(t);
+  },
+
+  followPen(t) {
+    const pen = $('penTip');
+    const wantPen = $('penFollow') && $('penFollow').checked;
+    let active = -1;
+    for (let i = 0; i < this.layers.length; i++) {
+      if (t >= this.layers[i].start) active = i;
+    }
+    if (!wantPen || active < 0 || t >= this.total) { pen.hidden = true; return; }
+    const layer = this.layers[active];
+    const box = !$('diffBox').hidden ? $('diffBox') : $('pvOut');
+    const vr = $('stageViewport').getBoundingClientRect();
+    const br = box.getBoundingClientRect();
+    let fx = layer.cx, fy = layer.cy;
+    if (layer.path && layer.len > 0) {
+      try {
+        const e = 1 - Math.pow(1 - clamp(layer.p, 0, 1), 2); // easeOutQuad，落笔感
+        const pt = layer.path.getPointAtLength(layer.len * clamp(e, 0, 1));
+        fx = pt.x / Store.src.w;
+        fy = pt.y / Store.src.h;
+      } catch (_) { /* 保持中心兜底 */ }
+    }
+    const w = parseFloat(box.style.width) || br.width;
+    const h = parseFloat(box.style.height) || br.height;
+    const x = (br.left - vr.left) + fx * w;
+    const y = (br.top - vr.top) + fy * h;
+    pen.hidden = false;
+    pen.classList.toggle('beam', this.isBeam);
+    pen.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+  },
+
+  finish() {
+    this.frame(this.total);
+    $('penTip').hidden = true;
+    if ($('animLoop').checked) { this.replay(); return; }
+    Store.playing = false;
+    Store.paused = true;
+    setPlayIcon(false);
+    log(`TIMELINE DONE [GSAP] // ${this.layers.length} LAYERS`);
+  },
+
+  replay() {
+    if (!this.tween) return;
+    Store.playing = true;
+    Store.paused = false;
+    setPlayIcon(true);
+    this.tween.restart();
+  },
+};
+
+// 双路径共用的动效 DOM 装配（GSAP 与 CSS 播放器共用，保证导出与预览同构）
+function renderAnimHosts(opts, anim, isBeam) {
   const inner = isBeam
     ? anim.colorBody
     : (opts.sketch
         ? `<g class="skst">\n${anim.sketchHtml}\n</g>\n<use href="#art" class="sketch"/>\n`
         : '') + `<g id="art">\n${anim.colorBody}\n</g>`;
   const extra = isBeam ? '<div class="glow"></div>' : '';
-
   [$('diffSvg'), $('pvOut')].forEach((host) => {
     const keepTag = host.id === 'pvOut' ? '<span class="tag" id="pvOutTag">SVG</span>' : '';
     host.innerHTML = keepTag +
@@ -429,6 +574,45 @@ function playAnimation() {
       svgEl.style.setProperty('--settle', `${anim.timing.settle.toFixed(2)}s`);
     }
   });
+}
+
+function gsapPlay() {
+  const opts = readAnimOpts();
+  const anim = buildAnimationData(Store.svg, opts);
+  renderAnimHosts(opts, anim, opts.style === 'beam');
+
+  const wrap = $('stageWrap');
+  wrap.style.setProperty('--play-state', 'running');
+  wrap.classList.remove('playing');
+  void wrap.offsetWidth;
+  wrap.classList.add('playing'); // 素描 CSS 照跑；.pg 由引擎逐帧驱动（样式层已禁用 CSS 动画）
+
+  GsapEngine.build(anim, opts);
+  Store.playing = true;
+  Store.paused = false;
+  setPlayIcon(true);
+  stopTimer();
+
+  const eff = GsapEngine.total / (Number($('animSpeed').value) || 1);
+  log(`TIMELINE RUNNING [GSAP] // ${anim.layerCount} LAYERS · ${eff.toFixed(1)}s · scrub可用`);
+}
+
+/* ---------- 8. 播放器 ---------- */
+function stopTimer() { if (Store.animTimer) { clearTimeout(Store.animTimer); Store.animTimer = 0; } }
+
+function setPlayIcon(playing) {
+  $('playIcon').style.display = playing ? 'none' : 'block';
+  $('pauseIcon').style.display = playing ? 'block' : 'none';
+}
+
+function playAnimation() {
+  if (!Store.svg || !Store.src || Store.busy) return;
+  if (hasGsap()) { gsapPlay(); return; }
+  const opts = readAnimOpts();
+  const anim = buildAnimationData(Store.svg, opts);
+  const isBeam = opts.style === 'beam';
+
+  renderAnimHosts(opts, anim, isBeam);
 
   const duration = isBeam ? 3.4 : anim.timing.total;
   const effective = duration / Number($('animSpeed').value);
@@ -452,6 +636,15 @@ function playAnimation() {
 }
 
 function togglePlay() {
+  // GSAP 主路径：真暂停/真恢复/播完重播
+  if (hasGsap() && GsapEngine.tween) {
+    const tw = GsapEngine.tween;
+    if (tw.progress() >= 1) { GsapEngine.replay(); return; }
+    if (tw.paused()) { tw.play(); Store.playing = true; Store.paused = false; setPlayIcon(true); }
+    else { tw.pause(); Store.playing = false; Store.paused = true; setPlayIcon(false); }
+    return;
+  }
+  // CSS 降级路径
   const wrap = $('stageWrap');
   if (!wrap.classList.contains('playing')) { playAnimation(); return; }
   if (Store.paused) {
@@ -469,7 +662,33 @@ function initPlayer() {
   $('btnReplay').addEventListener('click', playAnimation);
   $('btnPlayPause').addEventListener('click', togglePlay);
   $('animSpeed').addEventListener('change', () => {
+    if (hasGsap() && GsapEngine.tween && !Store.paused) {
+      GsapEngine.tween.timeScale(Number($('animSpeed').value) || 1);
+      return;
+    }
     if ($('stageWrap').classList.contains('playing') && !Store.paused) playAnimation();
+  });
+  // 时间轴 scrub：按下拖动即暂停跟手，松开按原状态恢复
+  const scrub = $('scrub');
+  scrub.addEventListener('input', () => {
+    if (!GsapEngine.tween) return;
+    GsapEngine.scrubbing = true;
+    if (!GsapEngine.tween.paused()) {
+      GsapEngine.tween.pause();
+      scrub.dataset.resume = '1';
+      Store.playing = false; Store.paused = true; setPlayIcon(false);
+    } else {
+      scrub.dataset.resume = '';
+    }
+    GsapEngine.tween.time((Number(scrub.value) / 1000) * GsapEngine.total);
+  });
+  scrub.addEventListener('change', () => {
+    GsapEngine.scrubbing = false;
+    if (scrub.dataset.resume === '1' && GsapEngine.tween) {
+      scrub.dataset.resume = '';
+      GsapEngine.tween.play();
+      Store.playing = true; Store.paused = false; setPlayIcon(true);
+    }
   });
 }
 
@@ -660,6 +879,18 @@ function initShortcuts() {
 
 /* ---------- 12. 启动 ---------- */
 function bootstrap() {
+  // 引擎探测：GSAP 就绪走时间轴主路径，否则 CSS 降级（离线/拦截均可用）
+  const eng = (typeof window.gsap !== 'undefined') ? 'gsap' : 'css';
+  document.body.dataset.engine = eng;
+  // 进度 UI 二选一：全局 [hidden] 是 !important，CSS 覆盖抢不过，必须 JS 摘属性
+  $('scrub').hidden = eng !== 'gsap';
+  $('progressWrap').hidden = eng === 'gsap';
+  const hint = $('engineHint');
+  if (hint) {
+    hint.textContent = eng === 'gsap'
+      ? 'ENGINE: GSAP TIMELINE · scrub / 变速 / 笔尖跟随已就绪'
+      : 'ENGINE: CSS FALLBACK · CDN 未加载，已自动降级';
+  }
   initParams();
   initUploadChannels();
   initViews();

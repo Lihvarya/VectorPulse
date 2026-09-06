@@ -115,6 +115,10 @@
 
       <div class="stage-wrapper" id="stageWrap" hidden>
         <div class="stage-viewport" id="stageViewport">
+          <!-- GSAP 笔尖跟随：由引擎定位到当前绘制点 -->
+          <div class="pen-tip" id="penTip" hidden aria-hidden="true">
+            <span class="pen-nib">✏</span><span class="pen-trail"></span>
+          </div>
           <div id="diffBox" class="diff-container" aria-label="卷帘对比视窗">
             <span class="crosshair tl" aria-hidden="true">+</span><span class="crosshair tr" aria-hidden="true">+</span>
             <span class="crosshair bl" aria-hidden="true">+</span><span class="crosshair br" aria-hidden="true">+</span>
@@ -149,7 +153,8 @@
           <button class="ctrl-icon-btn" id="btnReplay" type="button" title="重播 (R)">
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
           </button>
-          <div class="anim-progress" aria-hidden="true"><div class="anim-progress-inner" id="progressBar"></div></div>
+          <div class="anim-progress" id="progressWrap" aria-hidden="true"><div class="anim-progress-inner" id="progressBar"></div></div>
+          <input type="range" class="scrub" id="scrub" min="0" max="1000" value="0" step="1" aria-label="时间轴 scrub" hidden>
           <select id="animSpeed" aria-label="播放速度">
             <option value="0.5">0.5X</option>
             <option value="1" selected>1.0X</option>
@@ -196,6 +201,8 @@
           <output class="val" id="staggerv" for="stagger">.14</output>
         </div>
         <label class="check" for="sketch"><input type="checkbox" id="sketch" checked>底层线稿速写</label>
+        <label class="check" for="penFollow"><input type="checkbox" id="penFollow" checked>笔尖跟随</label>
+        <p class="hint" id="engineHint">ENGINE: …</p>
       </section>
 
       <section class="sec sec-grow" aria-labelledby="t-io">
@@ -240,6 +247,7 @@
   </div>
 
   <script src="vtracer.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -418,6 +418,55 @@ kbd {
 }
 @keyframes progress-fill { from { width: 0%; } to { width: 100%; } }
 
+/* ---- GSAP 时间轴 scrub：有 GSAP 时替代静态进度条（显隐由 JS 切 hidden） ---- */
+.scrub { flex: 1; min-width: 40px; }
+body[data-engine="gsap"] #progressWrap { display: none; }
+#scrub::-webkit-slider-runnable-track {
+  height: 8px; background: var(--hw-groove);
+  border: 1.5px solid var(--hw-border); border-radius: 2px;
+}
+#scrub::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 12px; height: 20px; margin-top: -7.5px;
+  background: var(--hw-orange); border: 2px solid var(--hw-border); border-radius: 2px;
+  box-shadow: 1px 1px 0 var(--hw-border); cursor: ew-resize;
+}
+#scrub::-moz-range-track {
+  height: 8px; background: var(--hw-groove);
+  border: 1.5px solid var(--hw-border); border-radius: 2px;
+}
+#scrub::-moz-range-thumb {
+  width: 9px; height: 16px; background: var(--hw-orange);
+  border: 2px solid var(--hw-border); border-radius: 2px; cursor: ew-resize;
+}
+
+/* ---- 笔尖跟随 ---- */
+.stage-viewport { position: relative; }
+.pen-tip {
+  position: absolute; left: 0; top: 0; z-index: 30;
+  pointer-events: none;
+  will-change: transform;
+  filter: drop-shadow(2px 2px 0 rgba(20, 20, 20, .55));
+}
+.pen-nib {
+  display: grid; place-items: center;
+  width: 26px; height: 26px; font-size: 15px;
+  background: #fff; border: 2px solid var(--hw-border); border-radius: 50%;
+  transform: translate(-50%, -78%) rotate(-18deg);
+}
+.pen-tip.beam .pen-nib { background: var(--hw-orange); color: #fff; }
+.pen-trail {
+  position: absolute; left: -3px; top: -3px; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--hw-orange); opacity: .85;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 8px 2px rgba(255, 62, 0, .55);
+}
+
+/* ---- GSAP 接管时禁用 CSS 关键帧（逐帧由引擎写入行内样式） ---- */
+body[data-engine="gsap"] .playing .pg,
+body[data-engine="gsap"] .playing .beam-svg,
+body[data-engine="gsap"] .playing .glow,
+body[data-engine="gsap"] .playing .anim-progress-inner { animation: none; }
+
 /* 底栏：触发 + 日志同行 */
 .stage-foot {
   width: 100%; max-width: 880px; flex: 0 0 auto;
