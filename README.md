@@ -23,21 +23,24 @@ VectorPulse Studio 是一个纯前端单页应用：
 
 最新版本亮点：
 
+- **WASM 双轨加载**：`http(s)` 下优先外置 `vtracer_bg.wasm`（`instantiateStreaming` → `ArrayBuffer` 回退）极速启动，`file://` 下自动懒加载 `vtracer-fallback.js` 内嵌包，双击照跑
 - **双播放引擎**：GSAP CDN 就绪走 `GSAP TIMELINE`（真暂停 / 变速 / scrub / 笔尖跟随），离线或 CDN 被拦自动降级 `CSS FALLBACK`，观感对齐
 - **工业硬件风三舱布局**：左 ENGINE 机架 / 中中央舞台 / 右 SEQ + I/O 机架，桌面 `100dvh` 一屏，`body[data-state|data-view|data-engine]` 全局驱动
-- **重构后的 `app.js`**：IIFE + `Store` 单一状态 + `BodyState` + 视口引擎（`ResizeObserver` + rAF + 防抖），无 ESM / 无 fetch，`file://` 照跑
+- **重构后的 `app.js`**：IIFE + `Store` 单一状态 + `BodyState` + 视口引擎（`ResizeObserver` + rAF + 防抖），描摹前等待 `VTracer.ready`，无 ESM，`file://` 照跑
 
 ## 🚀 30 秒上手
 
 ```bash
 git clone <your-repo-url>
 cd VectorPulse
-# 方式一：双击 index.html 直接打开（VTracer 核心无 fetch，可 file:// 运行）
-# 方式二：本地预览
+# 方式一：双击 index.html 直接打开（file:// 走 vtracer-fallback.js 懒加载，无需起服务）
+# 方式二：本地预览（http 走外置 vtracer_bg.wasm，启动更快）
 npx serve .
 # 或
 python -m http.server 8000
 ```
+
+> 保持 `index.html / app.js / style.css / vtracer.js / vtracer_bg.wasm / vtracer-fallback.js` 同目录。`vtracer_bg.wasm` 可被浏览器缓存，`vtracer-fallback.js` 仅在 `file://` 或外置加载失败时按需载入，删掉它会导致双击打开无法描摹。
 
 然后：
 
@@ -50,9 +53,10 @@ python -m http.server 8000
 
 ## 🧩 功能一览
 
-### 1. 智能描摹（VTracer WASM 本地核心）
+### 1. 智能描摹（VTracer WASM 本地核心，双轨加载）
 
-- `vtracer.js` 内嵌 WASM Base64，原生 `<script>` 同步加载，`window.VTracer.convertPixels(rgba,w,h,cfg)` 直调
+- 加载链：`index.html` 预加载 `vtracer_bg.wasm` → `vtracer.js` 启动时 `boot()`：`file://` 直走 fallback，`http(s)` 先 `instantiateStreaming(fetch)`，失败回退 `fetch ArrayBuffer`，再失败懒加载 `vtracer-fallback.js`（`window.__VTRACER_FALLBACK_BASE64`，用完即清空）
+- 就绪信号：`window.VTracer.ready: Promise` + `window.VTRACER_WASM_READY` + `window.VTracer.initError`；`app.js:triggerTrace` 先 `await ready`（日志显示 `WASM LOADING...`），再调 `window.VTracer.convertPixels(rgba,w,h,cfg)` 直调
 - 支持 `STACKED 叠层` / `CUTOUT 挖剪`，`SPLINE 样条` / `POLYGON 折线` / `PIXEL 像素`
 - 可调：色彩精度、杂斑滤波、色阶跨度、超采样 1X / 2X / 4X
 - 状态芯片实时显示：`PATHS 路径数 / SIZE 体积 / CYCLE 耗时 / ENG 当前引擎 / CANVAS 分辨率`
@@ -154,10 +158,12 @@ modal: SVG TELEMETRY // 源码检修
 
 ```
 VectorPulse/
-├── index.html  # 三舱骨架 + penTip + scrub + GSAP CDN + app.js
-├── style.css   # 工业硬件风：令牌/机架/舞台/scrub/笔尖/双引擎开关/断点
-├── app.js      # IIFE：工具/Store/预设/编排/视口/输入/描摹/视图/GSAP引擎/播放器/导出/弹窗/快捷键/启动
-└── vtracer.js  # VTracer WASM 离线容器，挂载 window.VTracer
+├── index.html            # 三舱骨架 + penTip + scrub + wasm preload + GSAP CDN + app.js
+├── style.css             # 工业硬件风：令牌/机架/舞台/scrub/笔尖/双引擎开关/断点
+├── app.js                # IIFE：工具/Store/预设/编排/视口/输入/描摹(等 ready)/视图/GSAP引擎/播放器/导出/弹窗/快捷键/启动
+├── vtracer.js            # WASM 双轨 loader：外置 wasm 主路径 + fallback 懒加载，挂载 window.VTracer
+├── vtracer_bg.wasm       # 外置主包（http 首选，668KB，`.gitattributes` 标 binary）
+└── vtracer-fallback.js   # 生成文件勿改：file:// 备用 Base64 包，懒加载一次
 ```
 
 零构建、无 `package.json`、无 ESM。`bootstrap()` 为唯一入口，做三件事：引擎探测 → 全部 `init*` 绑定 → `setView('side')`。
@@ -169,7 +175,8 @@ VectorPulse/
 - 编排：`buildAnimationData`（按 `d` 长度加权分层 + 46 批素描 + `T0/end/out/settle/total`），`ensureViewBox`
 - 视口：`getViewportSize/computePreviewBox/paintCanvas/updatePreviewGeometry/schedulePreviewResize`
 - 输入：`processFile`（`createImageBitmap` + 超采样 + 2048 限边 + `bmp.close()`），`initUploadChannels`（drop+empty 双入口 + 粘贴）
-- 描摹：`triggerTrace`（kill 旧轴 → `convertPixels` → stats → `renderSvgToContainers`），`setExportEnabled`
+- WASM 就绪：`vtracer.js:mountWasm/failWasm/boot/bootFromFallback/loadFallbackScript`，`app.js:triggerTrace` 等待 `VTracer.ready`（`WASM LOADING...`）
+- 描摹：`triggerTrace`（kill 旧轴 → 等 ready → `convertPixels` → stats → `renderSvgToContainers`），`setExportEnabled`
 - 视图：`setView/initViews`（含未提交改动：默认 `side`）
 - GSAP 引擎：`hasGsap/LAYER_DUR/applyLayerFrame/GsapEngine(build/frame/followPen/finish/replay/kill)`，`renderAnimHosts/gsapPlay`
 - 播放器：`playAnimation`（有 GSAP 走 `gsapPlay` 否则 CSS），`togglePlay/setPlayIcon/stopTimer/initPlayer`（含 scrub 拖拽逻辑）
@@ -201,22 +208,30 @@ VectorPulse/
 
 ## 🔒 隐私与离线（有变化）
 
-- **描摹核心仍 100% 本地**：`vtracer.js` 内嵌 WASM，`WebAssembly.Module` 本地实例化，无 `fetch`，`file://` 可用
+- **描摹算力仍 100% 本地**：WASM 在本机实例化，图片不出本机。只是包体从内嵌改为外置：`http(s)` 下会 `fetch vtracer_bg.wasm`（同目录静态文件，非上传），`file://` 下不 fetch、直接懒加载本地 `vtracer-fallback.js`
+- **要 file:// 双击可用**：别删 `vtracer-fallback.js`，`vtracer.js` 会在 `location.protocol === 'file:'` 时跳过 fetch 直走 fallback；F12 报 wasm http 错误时也会自动 fallback
 - **新增可选 GSAP CDN**：`index.html` 引用 `jsdelivr gsap@3.12.5`。在线时获得 scrub / 真暂停 / 笔尖跟随；离线或被拦时 `bootstrap()` 自动切 CSS 降级，描摹 / 预览 / 导出不受影响
-- **要纯离线**：删掉那一行 CDN `<script>` 即可，工程会恒走 CSS 路径；导出的动画 HTML 本身不依赖 GSAP，可放心分享
-- 无统计、无后端、无字体外链
+- **要纯离线**：删掉 GSAP 那一行 CDN `<script>` 即可恒走 CSS 路径；导出的动画 HTML 本身不依赖 GSAP，可放心分享
+- 无统计、无后端、无字体外链。`*.wasm` 已在 `.gitattributes` 标 `binary`，避免换行符破坏二进制
 
 ## 🌐 兼容性
 
-- 必需：`WebAssembly` + `createImageBitmap` + `Clipboard API`（复制功能）
+- 必需：`WebAssembly`（需 `WebAssembly.Module/Instance`，流式编译可选） + `createImageBitmap` + `Clipboard API`（复制功能）
 - 推荐 Chrome / Edge 90+、Firefox 90+、Safari 15+（需 `ResizeObserver` + `container-type: size` + `mask-image`）
+- WASM 服务：`http` 需以 `application/wasm` 提供 `vtracer_bg.wasm`（`npx serve / python http.server` 默认 OK），否则会自动走 `ArrayBuffer` / fallback；`index.html` 已加 `<link rel=preload as=fetch>` 提速
 - `file://` 下 PNG 导出走 `Blob URL + Image`，若被拦截请改 `python -m http.server`
 - GSAP 相关（scrub / 笔尖）需 CDN 可达 + 支持 `getTotalLength/getPointAtLength/getBBox`
 
 ## ❓ FAQ
 
 **Q: 打开空白？**
-确认 `index.html / vtracer.js / app.js / style.css` 同目录。F12 看 WASM 报错；若引用了 GSAP 且离线，属正常降级，看 `engineHint` 应为 `CSS FALLBACK`。
+确认 `index.html / app.js / style.css / vtracer.js / vtracer_bg.wasm / vtracer-fallback.js` 同目录。F12 看是 WASM 报错还是 GSAP 降级：`engineHint` 为 `CSS FALLBACK` 属正常离线降级，不影响描摹。
+
+**Q: 一直 `WASM LOADING...` / `WASM loader missing` / `WASM not ready`？**
+`vtracer.js` 还没 `mountWasm`。排查顺序：同目录是否有 `vtracer_bg.wasm` → 控制台是否有 `WASM init failed`（`initError`）→ `http` 是否返回 wasm MIME → `file://` 是否误删 `vtracer-fallback.js`。`vtracer-fallback.js` 头部注明 generated，勿手改。
+
+**Q: `vtracer-fallback.js` / `vtracer_bg.wasm` 能删一个吗？**
+不建议。`wasm` 是 http 主路径（快、可缓存），`fallback.js` 是 `file://` 生命线。仓库体积敏感可只留其一：只发 http 版留 wasm，只发双击包留 fallback，但 README 默认双轨都要。
 
 **Q: scrub 拖不动 / 笔尖不显示？**
 先看 stats `ENG` 芯片：`GSAP` 才有 scrub + 笔尖；`CSS` 只有进度条。检查网络能否访问 jsdelivr，或是否勾选了 `笔尖跟随`。
@@ -248,16 +263,17 @@ CSS 引擎会重播，GSAP 引擎是 `timeScale` 即时变速不重播，这是�
 
 ## 📝 更新日志
 
-- **Uncommitted**：默认视图 `split → side`（`Store.view`、`body[data-view]`、`setView('side')`、`diffBox hidden` / `sideWrap` 显示、tab active 同步）
+- **b18aa9a WASM 外置 + 懒加载**：新增 `vtracer_bg.wasm` 外置主包 + `vtracer-fallback.js` 懒加载包，`vtracer.js` 改 `boot()` 双轨（`instantiateStreaming` → `ArrayBuffer` → fallback，`file://` 直走 fallback），`app.js:triggerTrace` 等待 `VTracer.ready`，`index.html` 加 wasm preload，`.gitattributes` 加 `*.wasm binary`
+- **60bcc4d 默认视图**：`split → side`（`Store.view`、`body[data-view]`、`setView('side')`、`diffBox hidden` / `sideWrap` 显示、tab active 同步）
 - **8e9d5af GSAP timeline engine**：`GsapEngine`（build/frame/follow/finish/replay/kill）+ `applyLayerFrame` + `penTip` + `scrub` + `timeScale` 变速 + `body[data-engine]` + GSAP CDN + CSS 接管禁用
 - **5f15ae9 Refactor + 工业硬件风**：IIFE + `Store/BodyState` + 视口引擎 + 双入口上传 + `setView` + 播放器重写 + 导出器收敛 + 快捷键 + 三舱布局 + `100dvh` 一屏
 - **88cb236 VTracer 集成**：`js/app.js → app.js`，新增 `vtracer.js`，删 `js/engine.js/js/animator.js` 与 `LICENSE`，`css/style.css → style.css`，README 大改
 
 ## 🤝 贡献
 
-1. Fork 本仓库
+1. Fork 本仓库（注意 `*.wasm` 为 binary，diff 不可读属正常）
 2. `git checkout -b feat/xxx`
-3. 双击 `index.html` 自测：注入 → 描摹 → 播放（在线测 GSAP，断网测 CSS 降级）→ 五种导出
+3. 双击 `index.html`（测 `file://` fallback）+ `python -m http.server`（测外置 wasm + GSAP）双自测：注入 → 描摹 → 播放（在线测 GSAP，断网测 CSS 降级）→ 五种导出
 4. 提交 PR，附前后对比截图 + 预设参数 + `PATHS/SIZE/CYCLE/ENG`
 
 ## 📄 License
