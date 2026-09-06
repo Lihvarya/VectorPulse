@@ -4,18 +4,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>VectorPulse Studio — 智能图片转 SVG & 动态矢量工坊</title>
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <header>
   <div class="brand">
     <h1>Vector<b>Pulse</b> Studio</h1>
-    <span>光迹矢量工坊 · 离线图片转 SVG 与手绘动态生成</span>
+    <span>光迹矢量工坊 · 图片转 SVG 与动态过程生成</span>
   </div>
   <div class="header-badges">
-    <span class="badge">VTracer WASM Core</span>
-    <span class="badge">100% 本地运算·保护隐私</span>
+    <span class="badge">VTracer WASM 离线核心</span>
+    <span class="badge">免环境 · 双击即用</span>
   </div>
 </header>
 
@@ -127,26 +127,26 @@
   </aside>
 
   <main>
-    <!-- 拖拽上传区 -->
+    <!-- 上传区 -->
     <div class="drop" id="drop">
       拖拽图片到这里，或 <b>点击选择文件</b>（PNG, JPG, WebP, BMP）<br>
       <span style="font-size:12px;opacity:.8">支持直接使用 <kbd>Ctrl + V</kbd> 粘贴剪贴板截图</span>
       <input type="file" id="file" accept="image/*" hidden>
     </div>
 
-    <!-- 转换数据看板 -->
+    <!-- 状态芯片 -->
     <div class="stats" id="stats" hidden></div>
 
     <!-- 视图模式切换 -->
     <div class="view-tabs" id="viewTabs" hidden>
       <button class="tab-btn active" data-view="split">对比卷帘视图</button>
       <button class="tab-btn" data-view="side">左右并排视图</button>
-      <button class="tab-btn" data-view="svg">单屏渲染视图</button>
+      <button class="tab-btn" data-view="svg">单屏纯净视图</button>
     </div>
 
-    <!-- 画布与舞台 -->
+    <!-- 画布区 -->
     <div class="stage-wrapper" id="stageWrap" hidden>
-      <!-- 1. 卷帘滑动对比视图 -->
+      <!-- 卷帘对比视图 -->
       <div id="diffBox" class="diff-container">
         <div class="diff-layer diff-before">
           <canvas id="diffCv"></canvas>
@@ -162,7 +162,7 @@
         <input type="range" class="diff-slider-input" id="diffRange" min="0" max="100" value="50">
       </div>
 
-      <!-- 2. 并排对照视图 -->
+      <!-- 左右并排视图 -->
       <div id="sideWrap" class="side-wrap" hidden>
         <div>
           <div class="pv-box" id="pvSrc"><canvas id="cvSrc"></canvas><span class="tag">原图</span></div>
@@ -172,13 +172,13 @@
         </div>
       </div>
 
-      <!-- 动画播控条 -->
+      <!-- 动效播放控制器 -->
       <div class="anim-bar-wrap" id="animControls">
         <button class="ctrl-icon-btn" id="btnPlayPause" title="播放 / 暂停">
           <svg id="playIcon" width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
           <svg id="pauseIcon" width="16" height="16" fill="currentColor" viewBox="0 0 24 24" style="display:none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
         </button>
-        <button class="ctrl-icon-btn" id="btnReplay" title="重新从头播放">
+        <button class="ctrl-icon-btn" id="btnReplay" title="从头播放">
           <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
         </button>
         <div class="anim-progress"><div class="anim-progress-inner" id="progressBar"></div></div>
@@ -194,14 +194,14 @@
 
     <div class="btns">
       <button class="bt primary" id="retrace" disabled>↻ 重新描摹</button>
-      <button class="bt" id="replay" disabled>▶ 播放动画</button>
+      <button class="bt" id="replay" disabled>▶ 播放动效</button>
     </div>
 
     <div id="log"></div>
   </main>
 </div>
 
-<!-- SVG 源码检查模态框 -->
+<!-- SVG 代码弹窗 -->
 <div class="modal-mask" id="codeModal" hidden>
   <div class="modal">
     <div class="modal-head">
@@ -213,11 +213,13 @@
     </div>
     <div class="modal-foot">
       <button class="bt" id="copySvgCode">复制 SVG 代码</button>
-      <button class="bt" id="copySvgDataUri">复制 Data URI (Base64)</button>
+      <button class="bt" id="copySvgDataUri">复制 Data URI</button>
     </div>
   </div>
 </div>
 
-<script type="module" src="js/app.js"></script>
+<!-- 按依赖顺序通过原生 script 引入，避免 file:// CORS 限制 -->
+<script src="vtracer.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
