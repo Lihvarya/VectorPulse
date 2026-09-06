@@ -1,32 +1,38 @@
 # VectorPulse Studio — 智能图片转 SVG & 动态矢量工坊
 
-> 光迹矢量工坊 · 把位图变成可缩放、可播放、可分享的矢量故事。
+> UNIT-01 // RASTER-TO-VECTOR SYNTHESIZER · 工业硬件风矢量合成器工作站
 >
-> 免环境 · 双击即用 · 全离线 · 无需上传 · `file://` 可直接运行
+> 把位图变成可缩放、可播放、可分享的矢量故事。
+>
+> 双击即用 · VTracer 本地算力 · GSAP 时间轴 + CSS 双引擎降级 · `file://` 可直接运行
 
-![HTML5](https://img.shields.io/badge/HTML5-single_file_app-orange)
-![WASM](https://img.shields.io/badge/VTracer-WASM_offline-00e5a3)
-![No Build](https://img.shields.io/badge/0_%E4%BE%9D%E8%B5%96-0_%E6%9E%84%E5%BB%BA-blue)
-![Privacy](https://img.shields.io/badge/Privacy-100%25_local-success)
+![HTML5](https://img.shields.io/badge/HTML5-zero_build-orange)
+![WASM](https://img.shields.io/badge/VTracer-WASM_local-00c853)
+![GSAP](https://img.shields.io/badge/Engine-GSAP_%2B_CSS_fallback-ff3e00)
+![Privacy](https://img.shields.io/badge/Core-100%25_local-success)
 
 ## ✨ 这是什么？
 
 VectorPulse Studio 是一个纯前端单页应用：
 
-1. **拖入一张 PNG / JPG / WebP / BMP**（或直接 `Ctrl + V` 粘贴截图）
-2. 本地用 **VTracer WASM** 秒级描摹为 **SVG**
-3. 卷帘对比 / 并排 / 纯净三种视图实时预览
-4. 一键生成 **手绘涂装 / 水彩绽放 / 极光扫描** 三种过程动画
+1. **注入一张 PNG / JPG / WebP / BMP**（拖放 / 点击 / `Ctrl + V` 粘贴 / 空舞台点击）
+2. 本地用 **VTracer WASM** 秒级描摹为 **SVG**（图片不出本机）
+3. `Split 卷帘` / `Dual 并排（默认）` / `Mono 矢量` 三种监视视图实时预览
+4. 一键生成 **HAND-PAINT 手绘 / BLOOM 水彩绽放 / CYBER-BEAM 极光** 三种过程动画
 5. 导出 **SVG / 高清 PNG / 静态 HTML / 独立动画 HTML / Data URI**
 
-全程浏览器本地运算，图片不出本机，断网可用。
+最新版本亮点：
+
+- **双播放引擎**：GSAP CDN 就绪走 `GSAP TIMELINE`（真暂停 / 变速 / scrub / 笔尖跟随），离线或 CDN 被拦自动降级 `CSS FALLBACK`，观感对齐
+- **工业硬件风三舱布局**：左 ENGINE 机架 / 中中央舞台 / 右 SEQ + I/O 机架，桌面 `100dvh` 一屏，`body[data-state|data-view|data-engine]` 全局驱动
+- **重构后的 `app.js`**：IIFE + `Store` 单一状态 + `BodyState` + 视口引擎（`ResizeObserver` + rAF + 防抖），无 ESM / 无 fetch，`file://` 照跑
 
 ## 🚀 30 秒上手
 
 ```bash
 git clone <your-repo-url>
 cd VectorPulse
-# 方式一：双击 index.html 直接打开（已处理 file:// CORS，无需起服务）
+# 方式一：双击 index.html 直接打开（VTracer 核心无 fetch，可 file:// 运行）
 # 方式二：本地预览
 npx serve .
 # 或
@@ -35,100 +41,140 @@ python -m http.server 8000
 
 然后：
 
-1. 把图片拖到顶部虚线框，或点击选择，或 `Ctrl + V` 粘贴
-2. 新手直接选左侧 `快速预设配置`，会自动描摹
-3. 拖动中间卷帘滑块对比 原图 vs SVG
-4. 点 `▶ 播放动效` 预览，再点 `🚀 导出独立动画 HTML` 分享
+1. 把图片拖到顶部 `INJECT SOURCE BITMAP` 槽，或点中央 `AWAITING BITMAP` 空舞台，或 `Ctrl + V` 粘贴
+2. 新手直接在左架 `MOD.01 Preset Deck` 选预设，会自动重算
+3. 默认 `Dual 并排` 对比 RAW vs SVG，也可切 `Split 卷帘` 拖 `↔` 手柄
+4. 点 `▶ Trigger 动态绘制` 预览（`Space` 播放/暂停，有 GSAP 时可拖 scrub），再点 `🚀 动画 HTML` 分享
 
-> 大图会自动限边 `2048px` + 超采样，保证毫秒级转换不卡顿。
+> 大图会自动限边 `2048px` + 超采样，保证毫秒级转换不卡顿。描摹中 `body[data-state=busy]` 会锁定重复触发。
 
 ## 🧩 功能一览
 
-### 1. 智能描摹（VTracer WASM 离线核心）
-- `vtracer.js` 内嵌 WASM Base64，通过原生 `<script>` 加载，无额外请求
-- 支持 `stacked 叠层` / `cutout 挖剪`，`spline 样条` / `polygon 折线` / `none 硬边`
-- 可调：颜色丰富度、杂斑过滤、色阶跨度、超采样 1×/2×/4×
-- 状态芯片实时显示：路径数 / SVG 体积 / 耗时 / 分辨率
+### 1. 智能描摹（VTracer WASM 本地核心）
 
-### 2. 5 档开箱预设
+- `vtracer.js` 内嵌 WASM Base64，原生 `<script>` 同步加载，`window.VTracer.convertPixels(rgba,w,h,cfg)` 直调
+- 支持 `STACKED 叠层` / `CUTOUT 挖剪`，`SPLINE 样条` / `POLYGON 折线` / `PIXEL 像素`
+- 可调：色彩精度、杂斑滤波、色阶跨度、超采样 1X / 2X / 4X
+- 状态芯片实时显示：`PATHS 路径数 / SIZE 体积 / CYCLE 耗时 / ENG 当前引擎 / CANVAS 分辨率`
+- 重算时自动 `GsapEngine.kill()` 废弃旧时间轴，避免写分离 DOM
+
+### 2. 5 档硬件预设
 
 | 预设 | 适合 | 描摹策略 | 动效默认 |
 |---|---|---|---|
-| ⚖️ 默认平衡 | 通用插画 | stacked + spline, 颜色 7 | 手绘涂装 36 层 |
-| 📐 极简图标 / Logo | 图标、扁平 Logo | cutout + polygon, 颜色 4, 去斑 8 | 水彩绽放 16 层 |
-| 🎨 高保真动漫 / 绘本 | 动漫、绘本 | stacked + spline, 颜色 8 | 手绘涂装 48 层 |
-| 📷 摄影人像 | 照片、人像 | stacked + spline, 颜色 5, 去斑 12 | 极光扫描 24 层 |
-| ✒️ 黑白线稿 | 钢笔速写 | stacked + spline, 颜色 2 | 手绘涂装 + 素描铺底 |
+| BALANCED 标准插画平衡 | 通用插画 | stacked + spline, 颜色 7 | 手绘 36 层 |
+| LOGO 极简纯平色块 | 图标、扁平 Logo | cutout + polygon, 颜色 4, 去斑 8 | 水彩 16 层 |
+| ANIME 高精细度线面 | 动漫、绘本 | stacked + spline, 颜色 8 | 手绘 48 层 |
+| PHOTO 摄影人像滤波 | 照片、人像 | stacked + spline, 颜色 5, 去斑 12 | 极光 24 层 |
+| LINEART 钢笔硬速写 | 钢笔速写 | stacked + spline, 颜色 2 | 手绘 + 速写铺底 |
 
-任何手动拖动滑块都会自动切到 `⚙️ 自定义参数`。
+任何手动推子 / 下拉改动都会自动切入 `MANUAL 自定义参数`（`markCustom()`）。
 
-### 3. 三种动效编排
+### 3. 双引擎动效编排（本次大改）
+
+右架 `MOD.03 Timeline Seq`：动效流派 / 步进层数 6~80 / 节拍时延 0.03~0.35s / 底层线稿速写 / **笔尖跟随** / `ENGINE:` 状态行。
 
 | 风格 | 效果 | 原理 |
 |---|---|---|
-| `paint 手绘涂装` | 铅笔稿打底 → 逐层 wipe / dab 上色 → settle 收尾 | 按 path `d` 长度加权分层，46 批素描 `stroke-dashoffset` 动画 |
-| `bloom 水彩层叠绽放` | blur + scale 绽开 | `bloom` 关键帧 + 随机方向 wipe |
-| `beam 极光扫描揭幕` | Cyber 青绿光束扫过揭幕 + 高光 shine | SVG `mask-image` + `glow / shine` 叠加层 |
+| `HAND-PAINT 手绘` | 铅笔稿打底 → 逐层 wipe / dab 上色 → settle 收尾 | 按 path `d` 长度加权分层，46 批素描 `stroke-dashoffset` |
+| `BLOOM 水彩绽放` | blur + scale 绽开 | `bloom` 关键帧 + 随机方向 wipe |
+| `CYBER-BEAM 极光` | 橙红光束扫过揭幕（工业风配色） | SVG `mask-image` + `glow` 叠加层，sketch 强制关闭 |
 
-可调：动画层数 6~80、图层节拍 0.03s~0.35s、铅笔素描开关、0.5x~2.0x 变速、循环、暂停/重播、进度条。
+引擎二选一（`bootstrap()` 启动时探测）：
 
-### 4. 三种预览视图
-- **对比卷帘视图**：拖动 `↔` 滑块，原图 / SVG 无缝卷帘
-- **左右并排视图**：原图 canvas vs SVG 并排
-- **单屏纯净视图**：只看 SVG 成品
+| | GSAP TIMELINE（主路径） | CSS FALLBACK（降级路径） |
+|---|---|---|
+| 触发条件 | `https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js` 加载成功 | 离线 / CDN 被拦 / 无 `window.gsap` |
+| 标识 | `body[data-engine=gsap]`，`engineHint` 显示就绪，stats `ENG GSAP` | `body[data-engine=css]`，提示已降级，stats `ENG CSS` |
+| 暂停 | `tween.pause()/play()` 真暂停 | `--play-state: paused/running` 冻结关键帧 |
+| 变速 | `tween.timeScale()` 即时生效不重播 | 改速重播整条时间轴 |
+| 进度 | `scrub` 滑块（0~1000）可拖拽 seek，按住跟手、松开按原状态恢复 | 静态 `progressBar` 单向填充 |
+| 笔尖 | `penTip ✏` 跟随当前层绘制点（`getTotalLength/getPointAtLength/getBBox` + easeOutQuad） | 无笔尖 |
+| 层动画 | `applyLayerFrame()` 逐帧写行内 `clip-path/opacity/filter/transform`，复刻 CSS 语义，`LAYER_DUR 0.55s` 对齐 | CSS `.pg` 关键帧 |
 
-### 5. 五种导出
+`renderAnimHosts()` 为双路径共用的 DOM 装配，保证预览与导出同构；`beam` 下只保留 `glow`（已去掉旧 `shine`）。
+
+### 4. 三种监视视图（默认已改为并排）
+
+- **Dual 并排（默认）**：`RAW` canvas vs `SVG` 并排，双轨等比适配
+- **Split 卷帘**：拖 `↔` 滑块，原图 / 描摹无缝卷帘，带四角 `+` 取景框
+- **Mono 矢量**：隐藏原图，只看 SVG 成品
+
+视口引擎（`getViewportSize / computePreviewBox / paintCanvas / updatePreviewGeometry`）：
+
+- 以 `stageViewport` 实测尺寸为基准，并排时 `(vw-12)/2`，等比缩放
+- `requestAnimationFrame` + `80ms debounce` + `ResizeObserver`，窗口缩放不抖动
+- 快捷键 `1 / 2 / 3` 切 Split / Dual / Mono，`setView()` 同步 `body[data-view]` + `aria-selected`
+
+### 5. 五种 Master I/O 导出
+
+右架 `MOD.04 Master I/O`：PNG 倍率 + 导出组。
 
 | 按钮 | 产物 | 说明 |
 |---|---|---|
-| ⬇ 导出标准 SVG | `vectorpulse-output.svg` | 含 `viewBox`，可直接用于 Web / Figma / Ai |
-| ⬇ 导出高清 PNG | `vectorpulse-{w}x{h}.png` | 离屏 canvas 重绘，1× / 2× Retina / 4× 印刷 |
-| ⬇ 导出静态单页 HTML | `vectorpulse-static.html` | 居中自适应 stage，纯展示用 |
-| 🚀 导出独立动画 HTML | `vectorpulse-animated.html` | 自带重播按钮 + 进度条，单文件可分享 / 部署 |
-| 📋 查看 SVG 源码 | 弹窗 + 复制 | 一键复制 SVG 代码 / `data:image/svg+xml;base64,...` Data URI |
+| ⬇ SVG 矢量 | `vectorpulse-output.svg` | 含 `viewBox`，可进 Web / Figma / Ai |
+| ⬇ PNG 位图 | `vectorpulse-{w}x{h}.png` | 离屏 canvas 重绘，1X / 2X RETINA / 4X PRINT |
+| ⬇ 静态 HTML | `vectorpulse-static.html` | 工业风卡片 stage，纯展示用 |
+| 🚀 动画 HTML | `vectorpulse-animated.html` | 独立单文件，CSS 关键帧 + 重播按钮 + 进度条（导出器不依赖 GSAP，永远可分享） |
+| 📋 SVG 源码 | 弹窗 `SVG TELEMETRY` | 只读 textarea + 复制 SVG / 复制 `data:image/svg+xml;base64,...`，`Esc` 或点遮罩关闭 |
 
-## 🖥️ 界面导览
+### 6. 工作站交互
+
+- 空舞台即入口：`stageEmpty` 点击 / 回车 / 拖放直达文件选择器
+- 播控条：`播放/暂停 (Space)` / `重播 (R)` / 进度或 scrub / 变速 `0.5X~2.0X` / `LOOP` 循环
+- 快捷键（输入框内忽略）：`Space` 播放暂停，`R` 重算，`1/2/3` 视图，`Esc` 关弹窗
+- 无障碍：`role=tablist/tab/dialog/status`，`aria-live` 日志，`:focus-visible` 橙框，`prefers-reduced-motion` 熄火
+
+## 🖥️ 界面导览（工业硬件风）
 
 ```
-header: VectorPulse Studio + [VTracer WASM 离线核心] [免环境·双击即用]
-layout:
-  aside (310px):
-    - 快速预设配置
-    - 描摹精细度 (hier/mode/cp/fs/ld/upscale)
-    - 动效编排 (animStyle/layers/stagger/sketch)
-    - 导出格式 (pngscale + 5 导出按钮)
-  main:
-    - drop 上传区 (点击/拖拽/Ctrl+V)
-    - stats 状态芯片
-    - view-tabs 视图切换
-    - stage-wrapper (diffBox卷帘 / sideWrap并排 / anim播控条)
-    - retrace / replay
-    - log 日志
+topbar (48px): [LED] VectorPulse UNIT-01 // RASTER-TO-VECTOR SYNTHESIZER | CORE:VTRACER-WASM LOCAL CLK:60FPS
+layout (三舱网格, 桌面 100dvh 一屏):
+  rack-left ENGINE RACK:
+    - MOD.01 Preset Deck (presetSelect)
+    - MOD.02 Parameters (hier/mode/cp/fs/ld/upscale + Execute Retrace)
+  rack-center 中央监视舞台 (点阵背景):
+    - drop INJECT SOURCE BITMAP [拖放/点击/粘贴]
+    - screen-hud: stats + view-tabs (Split/Dual/Mono)
+    - stageViewport: penTip ✏ + diffBox卷帘 / sideWrap双轨
+    - anim-bar: play/pause replay progress|scrub speed LOOP
+    - stageEmpty AWAITING BITMAP ◈ (无图时) <-> stageWrap (有图时)
+    - stage-foot: Trigger 动态绘制 + log
+  rack-right MASTER BUS:
+    - MOD.03 Timeline Seq (animStyle/layers/stagger/sketch/penFollow/engineHint)
+    - MOD.04 Master I/O (pngscale + 5 导出)
+modal: SVG TELEMETRY // 源码检修
 ```
 
-响应式：`<960px` 自动上下堆叠，侧栏下沉。
+主题令牌：米灰机箱 `#e7e4db` / 面板 `#f3f0e8` / 粗黑描边 `#141414` / 硬阴影 `4px 4px 0` / 工业橙 `#ff3e00` / 等宽遥测字体。
 
-## 📁 项目结构
+响应式：`≥1024px` 三舱一屏；`≤1023px` 转单列（舞台优先，机架变双列网格）；`≤640px` 单列，双轨改竖排。
+
+## 📁 项目结构与架构
 
 ```
 VectorPulse/
-├── index.html  # UI 骨架：预设/参数/动效/导出/舞台/弹窗
-├── style.css   # 暗色矢量工坊主题 + 全部关键帧 (wipe/bloom/beam/draw/settle)
-├── app.js      # 核心流水线：上传→描摹→分层→播放→导出
+├── index.html  # 三舱骨架 + penTip + scrub + GSAP CDN + app.js
+├── style.css   # 工业硬件风：令牌/机架/舞台/scrub/笔尖/双引擎开关/断点
+├── app.js      # IIFE：工具/Store/预设/编排/视口/输入/描摹/视图/GSAP引擎/播放器/导出/弹窗/快捷键/启动
 └── vtracer.js  # VTracer WASM 离线容器，挂载 window.VTracer
 ```
 
-零依赖、零构建、无 `package.json`、无打包器。`app.js:bootstrap` 为唯一入口。
+零构建、无 `package.json`、无 ESM。`bootstrap()` 为唯一入口，做三件事：引擎探测 → 全部 `init*` 绑定 → `setView('side')`。
 
-核心函数速查：
+核心速查（`app.js`）：
 
-- `app.js:18 PRESETS` 预设表
-- `app.js:28 buildAnimationData` 按权重分层 + 素描批处理 + 时间轴计算
-- `app.js:196 processFile` 解码 + 超采样 + 2048 限边
-- `app.js:286 triggerTrace` `VTracer.convertPixels(rgba,w,h,config)` 调用
-- `app.js:368 playAnimation` 预览播放
-- `app.js:502 buildAnimatedHtml` 独立动画文件生成器
-- `app.js:472 buildStaticHtml` 静态文件生成器
+- 状态：`Store(src/svg/view/busy/playing/paused)`，`BodyState.set()` 同步 `body[data-state]`
+- 预设：`PRESETS`，`readParams/readAnimOpts`，`applyPreset/markCustom/initParams`
+- 编排：`buildAnimationData`（按 `d` 长度加权分层 + 46 批素描 + `T0/end/out/settle/total`），`ensureViewBox`
+- 视口：`getViewportSize/computePreviewBox/paintCanvas/updatePreviewGeometry/schedulePreviewResize`
+- 输入：`processFile`（`createImageBitmap` + 超采样 + 2048 限边 + `bmp.close()`），`initUploadChannels`（drop+empty 双入口 + 粘贴）
+- 描摹：`triggerTrace`（kill 旧轴 → `convertPixels` → stats → `renderSvgToContainers`），`setExportEnabled`
+- 视图：`setView/initViews`（含未提交改动：默认 `side`）
+- GSAP 引擎：`hasGsap/LAYER_DUR/applyLayerFrame/GsapEngine(build/frame/followPen/finish/replay/kill)`，`renderAnimHosts/gsapPlay`
+- 播放器：`playAnimation`（有 GSAP 走 `gsapPlay` 否则 CSS），`togglePlay/setPlayIcon/stopTimer/initPlayer`（含 scrub 拖拽逻辑）
+- 导出：`downloadBlob/buildStaticHtml/buildAnimatedHtml/initExporters`
+- 其他：`initModal/initShortcuts/bootstrap`，`window.VectorPulse` 调试暴露
 
 ## ⚙️ 参数详解
 
@@ -136,73 +182,93 @@ VectorPulse/
 
 | 参数 | UI | 含义 | 建议 |
 |---|---|---|---|
-| `hierarchical` | 图层结构 | `stacked` 色彩叠加更柔和，`cutout` 边缘更干净 | 照片/插画用 stacked，Logo 用 cutout |
-| `mode` | 拟合曲线 | `spline` 平滑，`polygon` 硬朗，`none` 像素风 | Logo 用 polygon，线稿/照片用 spline |
-| `colorPrecision` 1~10 | 颜色丰富度 | 颜色量化精度 | Logo 3~4，插画 7，动漫 8 |
-| `filterSpeckle` 0~30 | 杂斑过滤 | 过滤小噪点面积 | 照片 10~12，干净线稿 4~6 |
+| `hierarchical` | 图层拓扑 | `stacked` 叠加柔和，`cutout` 边缘干净 | 照片/插画 stacked，Logo cutout |
+| `mode` | 拟合样条 | `spline` 平滑，`polygon` 硬朗，`pixel` 像素风 | Logo polygon，线稿/照片 spline |
+| `colorPrecision` 1~10 | 色彩精度 | 颜色量化精度 | Logo 3~4，插画 7，动漫 8 |
+| `filterSpeckle` 0~30 | 杂斑滤波 | 过滤小噪点面积 | 照片 10~12，干净稿 4~6 |
 | `layerDifference` 2~64 | 色阶跨度 | 图层合并阈值 | 动漫 8~10，线稿 32~48 |
-| `upscale` | 超采样 | 输入放大再描摹，边缘更顺 | 小图标用 4×，大照片用 1× |
+| `upscale` | 超采样 | 输入放大再描摹 | 小图标 4X，大照片 1X |
 
 动效 `opts`：
 
 | 参数 | 范围 | 说明 |
 |---|---|---|
-| `style` | paint / bloom / beam | 三种风格见上 |
-| `layers` | 6~80 | SVG path 按长度加权合并成的播放组数 |
+| `style` | paint / bloom / beam | 三种流派见上 |
+| `layers` | 6~80 | path 按长度加权合并的播放组数 |
 | `stagger` | 0.03~0.35s | 每层延迟，决定总时长 |
 | `sketch` | bool | beam 下强制关闭，其他风格叠加铅笔稿 |
+| `penFollow` | bool | 仅 GSAP 引擎有效，笔尖是否跟随（CSS 降级时隐藏） |
 
-## 🔒 隐私与离线
+## 🔒 隐私与离线（有变化）
 
-- 无 CDN、无字体外链、无统计、无后端请求
-- `vtracer.js:8 WASM_BYTES_BASE64` 本地实例化 `WebAssembly.Module`
-- `file://` 直接打开可用，原因：不用 `fetch` / `import`，只用同步 `<script src="vtracer.js">` + `<script src="app.js">`
+- **描摹核心仍 100% 本地**：`vtracer.js` 内嵌 WASM，`WebAssembly.Module` 本地实例化，无 `fetch`，`file://` 可用
+- **新增可选 GSAP CDN**：`index.html` 引用 `jsdelivr gsap@3.12.5`。在线时获得 scrub / 真暂停 / 笔尖跟随；离线或被拦时 `bootstrap()` 自动切 CSS 降级，描摹 / 预览 / 导出不受影响
+- **要纯离线**：删掉那一行 CDN `<script>` 即可，工程会恒走 CSS 路径；导出的动画 HTML 本身不依赖 GSAP，可放心分享
+- 无统计、无后端、无字体外链
 
 ## 🌐 兼容性
 
-- 需要 `WebAssembly` + `createImageBitmap` + `Clipboard API`（复制功能）
-- 推荐 Chrome / Edge 90+、Firefox 90+、Safari 15+
-- `file://` 下 PNG 导出走 `Blob URL + Image`，若浏览器拦截请改用本地 http 服务
+- 必需：`WebAssembly` + `createImageBitmap` + `Clipboard API`（复制功能）
+- 推荐 Chrome / Edge 90+、Firefox 90+、Safari 15+（需 `ResizeObserver` + `container-type: size` + `mask-image`）
+- `file://` 下 PNG 导出走 `Blob URL + Image`，若被拦截请改 `python -m http.server`
+- GSAP 相关（scrub / 笔尖）需 CDN 可达 + 支持 `getTotalLength/getPointAtLength/getBBox`
 
 ## ❓ FAQ
 
 **Q: 打开空白？**
-检查是否直接双击 `index.html` 且 `vtracer.js / app.js / style.css` 在同目录。F12 看 Console 是否有 WASM 初始化报错。
+确认 `index.html / vtracer.js / app.js / style.css` 同目录。F12 看 WASM 报错；若引用了 GSAP 且离线，属正常降级，看 `engineHint` 应为 `CSS FALLBACK`。
+
+**Q: scrub 拖不动 / 笔尖不显示？**
+先看 stats `ENG` 芯片：`GSAP` 才有 scrub + 笔尖；`CSS` 只有进度条。检查网络能否访问 jsdelivr，或是否勾选了 `笔尖跟随`。
+
+**Q: 变速后从头重播？**
+CSS 引擎会重播，GSAP 引擎是 `timeScale` 即时变速不重播，这是区分两者的最快方法。
+
+**Q: 默认为什么是并排而不是卷帘？**
+最新未提交改动把 `Store.view / body[data-view] / setView()` 默认从 `split` 切到 `side`，并排更适合一屏监视，卷帘按 `1` 键即回。
 
 **Q: 描摹太慢 / 文件巨大？**
-降 `颜色丰富度`、升 `杂斑过滤`、超采样改 1×，或换 `logo` 预设。路径数和 KB 会显示在状态芯片上。
+降色彩精度、升杂斑滤波、超采样改 1X，或换 LOGO 预设。看 `PATHS / SIZE / CYCLE` 芯片调参。
 
 **Q: 导出的动画 HTML 没动？**
-打开后会自动播一次，点 `重播动画` 即可。需要自动循环请在 Studio 里勾选循环后再看预览（导出文件为单次播放 + 手动重播设计，方便嵌入）。
+打开后自动播一次，点 `RESTART 重新发生` 即可。导出器是纯 CSS 方案，与 studio 是否用 GSAP 无关。
 
-**Q: SVG 导入 Figma / Ai 异常？**
-先用 `查看 SVG 源码` 检查是否含超大 path，尝试 `cutout + polygon` 预设重新描摹，兼容性最好。
+**Q: SVG 进 Figma / Ai 异常？**
+用源码弹窗检查超大 path，换 `CUTOUT + POLYGON` 重描，兼容性最好。
 
 ## 🗺️ Roadmap
 
+- [x] GSAP 时间轴引擎 + scrub + 笔尖跟随（已落地，CSS 降级保留）
+- [x] 工业硬件风三舱 UI + 视口自适应（已落地）
 - [ ] 自定义调色板锁定 / 背景抠除
 - [ ] SVG 路径简化滑块（体积优化）
 - [ ] 导出 Lottie / SMIL
 - [ ] 批量队列转换
-- [ ] PWA 离线安装包
+- [ ] PWA 离线安装包（含 GSAP 本地化，彻底零网络）
 
-欢迎提 Issue / PR，一起把矢量玩出脉冲感。
+## 📝 更新日志
+
+- **Uncommitted**：默认视图 `split → side`（`Store.view`、`body[data-view]`、`setView('side')`、`diffBox hidden` / `sideWrap` 显示、tab active 同步）
+- **8e9d5af GSAP timeline engine**：`GsapEngine`（build/frame/follow/finish/replay/kill）+ `applyLayerFrame` + `penTip` + `scrub` + `timeScale` 变速 + `body[data-engine]` + GSAP CDN + CSS 接管禁用
+- **5f15ae9 Refactor + 工业硬件风**：IIFE + `Store/BodyState` + 视口引擎 + 双入口上传 + `setView` + 播放器重写 + 导出器收敛 + 快捷键 + 三舱布局 + `100dvh` 一屏
+- **88cb236 VTracer 集成**：`js/app.js → app.js`，新增 `vtracer.js`，删 `js/engine.js/js/animator.js` 与 `LICENSE`，`css/style.css → style.css`，README 大改
 
 ## 🤝 贡献
 
 1. Fork 本仓库
 2. `git checkout -b feat/xxx`
-3. 改完双击 `index.html` 自测：上传 → 描摹 → 播放 → 四种导出
-4. 提交 PR，附前后对比截图 + 参数 + 耗时/体积
+3. 双击 `index.html` 自测：注入 → 描摹 → 播放（在线测 GSAP，断网测 CSS 降级）→ 五种导出
+4. 提交 PR，附前后对比截图 + 预设参数 + `PATHS/SIZE/CYCLE/ENG`
 
 ## 📄 License
 
-建议 MIT（待补充 `LICENSE`）。VTracer WASM 部分遵循其上游开源协议，商用前请确认原项目授权。
+当前仓库无 `LICENSE` 文件（已在 `88cb236` 删除）。如需开源建议补 MIT；VTracer WASM 部分遵循其上游协议，商用前请确认原项目授权。
 
 ## 🙏 致谢
 
-- [VTracer](https://github.com/visioncortex/VTracer) — 高性能 Rust 位图转矢量核心，本项目 WASM 离线化封装
-- 灵感：手绘延时摄影、水彩晕染、Cyberpunk 扫描线
+- [VTracer](https://github.com/visioncortex/VTracer) — Rust 位图转矢量核心，本项目 WASM 离线化封装
+- [GSAP](https://gsap.com/) — 可选时间轴引擎（CDN），缺席时自动降级
+- 灵感：手绘延时摄影、水彩晕染、工业硬件机箱
 
 ---
 

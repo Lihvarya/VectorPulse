@@ -8,7 +8,7 @@
   <title>VectorPulse Studio — 工业硬件风矢量合成器工作站</title>
   <link rel="stylesheet" href="style.css">
 </head>
-<body data-state="idle" data-view="split">
+<body data-state="idle" data-view="side">
 
   <!-- 顶栏：机体标牌 + 状态 -->
   <header class="topbar" role="banner">
@@ -107,8 +107,8 @@
       <div class="screen-hud">
         <div class="stats" id="stats" aria-live="polite"></div>
         <div class="view-tabs" id="viewTabs" role="tablist" aria-label="视图切换" hidden>
-          <button class="tab-btn active" data-view="split" role="tab" aria-selected="true" type="button">Split 卷帘</button>
-          <button class="tab-btn" data-view="side" role="tab" aria-selected="false" type="button">Dual 并排</button>
+          <button class="tab-btn" data-view="split" role="tab" aria-selected="false" type="button">Split 卷帘</button>
+          <button class="tab-btn active" data-view="side" role="tab" aria-selected="true" type="button">Dual 并排</button>
           <button class="tab-btn" data-view="svg" role="tab" aria-selected="false" type="button">Mono 矢量</button>
         </div>
       </div>
@@ -119,7 +119,7 @@
           <div class="pen-tip" id="penTip" hidden aria-hidden="true">
             <span class="pen-nib">✏</span><span class="pen-trail"></span>
           </div>
-          <div id="diffBox" class="diff-container" aria-label="卷帘对比视窗">
+          <div id="diffBox" class="diff-container" aria-label="卷帘对比视窗" hidden>
             <span class="crosshair tl" aria-hidden="true">+</span><span class="crosshair tr" aria-hidden="true">+</span>
             <span class="crosshair bl" aria-hidden="true">+</span><span class="crosshair br" aria-hidden="true">+</span>
             <div class="diff-layer diff-before">
@@ -134,7 +134,7 @@
             <input type="range" class="diff-slider-input" id="diffRange" min="0" max="100" value="50" aria-label="卷帘位置">
           </div>
 
-          <div id="sideWrap" class="side-wrap" hidden>
+          <div id="sideWrap" class="side-wrap">
             <div class="pv-box" id="pvSrc">
               <canvas id="cvSrc"></canvas>
               <span class="tag">RAW</span>

@@ -21,7 +21,7 @@ const debounce = (fn, ms) => {
 const Store = {
   src: null,          // { canvas, w, h, rgba }
   svg: '',
-  view: 'split',      // split | side | svg
+  view: 'side',      // split | side | svg（默认并排）
   busy: false,        // 描摹中
   playing: false,
   paused: false,
@@ -898,7 +898,7 @@ function bootstrap() {
   initExporters();
   initModal();
   initShortcuts();
-  setView('split');
+  setView('side');
   BodyState.set(false);
 
   window.addEventListener('resize', schedulePreviewResizeDebounced);
