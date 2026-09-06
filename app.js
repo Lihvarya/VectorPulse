@@ -1,30 +1,118 @@
-/* =========================================================================
- * VectorPulse Studio - 核心交互逻辑与动效流水线
- * ========================================================================= */
+/* ==========================================================================
+ * VectorPulse Studio — 前端重构版（风格不变）
+ * 结构：工具 / 状态 / 预设 / 动效编排 / 视口引擎 / 输入 / 描摹 / 视图 /
+ *       播放器 / 导出 / 弹窗 / 快捷键 / 启动
+ * 约束：file:// 可直接运行，无 fetch / 无 ESM，保持全部元素 ID 兼容
+ * ========================================================================== */
+(() => {
+'use strict';
 
-// DOM 工具与异步等待
+/* ---------- 0. 工具 ---------- */
 const $ = (id) => document.getElementById(id);
-const log = (msg, spin) => {
-  $('log').innerHTML = spin ? `<span class="spin"></span>${msg}` : msg;
-};
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const debounce = (fn, ms) => {
+  let t = 0;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+};
 
-// 全局运行状态
-let SRC = null; // 包含 { canvas, w, h, rgba, originalBmp }
-let CURRENT_SVG = '';
-let isPaused = false;
-let animTimer = null;
+/* ---------- 1. 状态 ---------- */
+const Store = {
+  src: null,          // { canvas, w, h, rgba }
+  svg: '',
+  view: 'split',      // split | side | svg
+  busy: false,        // 描摹中
+  playing: false,
+  paused: false,
+  animTimer: 0,
+  resizeRaf: 0,
+};
 
-// 1. 预设参数方案配置表
+const BodyState = {
+  set(busy) {
+    Store.busy = busy;
+    document.body.dataset.state = busy ? 'busy' : (Store.src ? 'ready' : 'idle');
+    $('retrace').disabled = busy || !Store.src;
+  },
+};
+
+function log(msg, spin = false) {
+  $('log').innerHTML = spin ? `<span class="spin"></span>${msg}` : msg;
+}
+
+/* ---------- 2. 预设 ---------- */
 const PRESETS = {
   balanced: { hier: 'stacked', mode: 'spline', cp: 7, fs: 4, ld: 16, upscale: 2, anim: 'paint', layers: 36, stagger: 14, sketch: true },
-  logo: { hier: 'cutout', mode: 'polygon', cp: 4, fs: 8, ld: 32, upscale: 2, anim: 'bloom', layers: 16, stagger: 18, sketch: false },
-  anime: { hier: 'stacked', mode: 'spline', cp: 8, fs: 2, ld: 10, upscale: 2, anim: 'paint', layers: 48, stagger: 12, sketch: true },
-  photo: { hier: 'stacked', mode: 'spline', cp: 5, fs: 12, ld: 24, upscale: 1, anim: 'beam', layers: 24, stagger: 10, sketch: false },
-  lineart: { hier: 'stacked', mode: 'spline', cp: 2, fs: 6, ld: 48, upscale: 2, anim: 'paint', layers: 20, stagger: 15, sketch: true }
+  logo:     { hier: 'cutout', mode: 'polygon', cp: 4, fs: 8, ld: 32, upscale: 2, anim: 'bloom', layers: 16, stagger: 18, sketch: false },
+  anime:    { hier: 'stacked', mode: 'spline', cp: 8, fs: 2, ld: 10, upscale: 2, anim: 'paint', layers: 48, stagger: 12, sketch: true },
+  photo:    { hier: 'stacked', mode: 'spline', cp: 5, fs: 12, ld: 24, upscale: 1, anim: 'beam', layers: 24, stagger: 10, sketch: false },
+  lineart:  { hier: 'stacked', mode: 'spline', cp: 2, fs: 6, ld: 48, upscale: 2, anim: 'paint', layers: 20, stagger: 15, sketch: true },
 };
 
-// 2. 动画数据生成与关键帧编排器
+function readParams() {
+  return {
+    hier: $('hier').value,
+    mode: $('mode').value,
+    cp: Number($('cp').value),
+    fs: Number($('fs').value),
+    ld: Number($('ld').value),
+    upscale: Number($('upscale').value),
+  };
+}
+
+function readAnimOpts() {
+  return {
+    style: $('animStyle').value,
+    layers: Number($('layers').value),
+    stagger: Number($('stagger').value) / 100,
+    sketch: $('sketch').checked,
+  };
+}
+
+function applyPreset(name) {
+  const p = PRESETS[name];
+  if (!p) return;
+  $('hier').value = p.hier;
+  $('mode').value = p.mode;
+  $('cp').value = p.cp;         $('cpv').textContent = p.cp;
+  $('fs').value = p.fs;         $('fsv').textContent = p.fs;
+  $('ld').value = p.ld;         $('ldv').textContent = p.ld;
+  $('upscale').value = String(p.upscale);
+  $('animStyle').value = p.anim;
+  $('layers').value = p.layers; $('layersv').textContent = p.layers;
+  $('stagger').value = p.stagger;
+  $('staggerv').textContent = '.' + String(p.stagger).padStart(2, '0');
+  $('sketch').checked = p.sketch;
+}
+
+function markCustom() {
+  if ($('presetSelect').value !== 'custom') $('presetSelect').value = 'custom';
+}
+
+function initParams() {
+  const bind = (id, outId, fmt = (v) => v) => {
+    $(id).addEventListener('input', () => {
+      $(outId).textContent = fmt($(id).value);
+      markCustom();
+    });
+  };
+  bind('cp', 'cpv');
+  bind('fs', 'fsv');
+  bind('ld', 'ldv');
+  bind('layers', 'layersv');
+  bind('stagger', 'staggerv', (v) => '.' + String(v).padStart(2, '0'));
+  ['hier', 'mode', 'upscale', 'animStyle', 'layers', 'stagger', 'sketch'].forEach((id) => {
+    $(id).addEventListener('change', markCustom);
+  });
+  $('presetSelect').addEventListener('change', (e) => {
+    if (e.target.value === 'custom') return;
+    applyPreset(e.target.value);
+    if (Store.src) void triggerTrace();
+  });
+}
+
+/* ---------- 3. 动效编排（逻辑与旧版一致） ---------- */
 function buildAnimationData(svgText, opts) {
   const paths = svgText.match(/<path\b.*?\/>/gs) || [];
   const weights = paths.map((p) => (p.match(/d="([^"]*)"/) || ['', ''])[1].length);
@@ -32,45 +120,30 @@ function buildAnimationData(svgText, opts) {
   const perLayerWeight = Math.max(1, totalWeight / opts.layers);
 
   const layers = [];
-  let currentLayer = [];
-  let currentAcc = 0;
-
+  let cur = [], acc = 0;
   for (let i = 0; i < paths.length; i++) {
-    currentLayer.push(paths[i]);
-    currentAcc += weights[i];
-    if (currentAcc >= perLayerWeight && layers.length < opts.layers - 1) {
-      layers.push(currentLayer);
-      currentLayer = [];
-      currentAcc = 0;
+    cur.push(paths[i]);
+    acc += weights[i];
+    if (acc >= perLayerWeight && layers.length < opts.layers - 1) {
+      layers.push(cur); cur = []; acc = 0;
     }
   }
-  if (currentLayer.length) layers.push(currentLayer);
+  if (cur.length) layers.push(cur);
 
   const timing = {};
   let sketchHtml = '';
-
   if (opts.sketch && opts.style !== 'beam') {
-    const NUM_BATCHES = 46;
-    const perBatchWeight = Math.max(1, totalWeight / NUM_BATCHES);
+    const N = 46;
+    const perBatch = Math.max(1, totalWeight / N);
     const batches = [];
-    let bCur = [];
-    let bAcc = 0;
-
+    let bCur = [], bAcc = 0;
     paths.forEach((p, i) => {
       bCur.push(p.replace('<path ', '<path pathLength="1" ', 1));
       bAcc += weights[i];
-      if (bAcc >= perBatchWeight && batches.length < NUM_BATCHES - 1) {
-        batches.push(bCur);
-        bCur = [];
-        bAcc = 0;
-      }
+      if (bAcc >= perBatch && batches.length < N - 1) { batches.push(bCur); bCur = []; bAcc = 0; }
     });
     if (bCur.length) batches.push(bCur);
-
-    sketchHtml = batches
-      .map((b, i) => `<g class="skb" style="--i:${i}">\n${b.join('\n')}\n</g>`)
-      .join('\n');
-
+    sketchHtml = batches.map((b, i) => `<g class="skb" style="--i:${i}">\n${b.join('\n')}\n</g>`).join('\n');
     const drawDuration = 0.2 + (batches.length - 1) * 0.04 + 0.7;
     timing.tone = drawDuration - 0.3;
     timing.ink = timing.tone + 0.8;
@@ -81,15 +154,11 @@ function buildAnimationData(svgText, opts) {
 
   const paintClasses = ['wipe-r', 'wipe-l', 'wipe-d', 'dab'];
   let colorBody = '';
-
   layers.forEach((group, i) => {
-    let animClass = 'wipe-r';
-    if (opts.style === 'bloom') {
-      animClass = 'bloom';
-    } else if (opts.style === 'paint') {
-      animClass = i < 6 ? paintClasses[(i * 3 + 1) % 4] : paintClasses[Math.floor(Math.random() * 4)];
-    }
-    colorBody += `<g class="pg ${animClass}" style="--i:${i};--d:calc(${timing.T0}s + var(--i) * ${opts.stagger}s)">\n${group.join('\n')}\n</g>\n`;
+    let cls = 'wipe-r';
+    if (opts.style === 'bloom') cls = 'bloom';
+    else if (opts.style === 'paint') cls = i < 6 ? paintClasses[(i * 3 + 1) % 4] : paintClasses[Math.floor(Math.random() * 4)];
+    colorBody += `<g class="pg ${cls}" style="--i:${i};--d:calc(${timing.T0}s + var(--i) * ${opts.stagger}s)">\n${group.join('\n')}\n</g>\n`;
   });
 
   timing.end = timing.T0 + (layers.length - 1) * opts.stagger + 0.55;
@@ -97,13 +166,7 @@ function buildAnimationData(svgText, opts) {
   timing.settle = timing.end;
   timing.total = timing.end + 1.2;
 
-  return {
-    colorBody,
-    sketchHtml,
-    timing,
-    layerCount: layers.length,
-    pathCount: paths.length
-  };
+  return { colorBody, sketchHtml, timing, layerCount: layers.length, pathCount: paths.length };
 }
 
 function ensureViewBox(svgText, w, h) {
@@ -111,291 +174,255 @@ function ensureViewBox(svgText, w, h) {
   return svgText.replace('<svg ', `<svg viewBox="0 0 ${w} ${h}" `);
 }
 
-// 3. 页面交互控制初始化
-function initRangeListeners() {
-  const syncRange = (id, targetId) => {
-    $(id).addEventListener('input', () => {
-      $(targetId).textContent = $(id).value;
-      $('presetSelect').value = 'custom';
-    });
+/* ---------- 4. 视口引擎：一屏等比适配 ---------- */
+function getViewportSize() {
+  const vp = $('stageViewport');
+  if (vp && vp.clientWidth > 40 && vp.clientHeight > 40) {
+    return { vw: vp.clientWidth - 4, vh: vp.clientHeight - 4 };
+  }
+  const mainEl = document.querySelector('main.rack-center');
+  return {
+    vw: clamp(mainEl ? mainEl.clientWidth - 32 : 800, 260, 880),
+    vh: clamp(window.innerHeight * 0.5, 240, 640),
   };
-
-  syncRange('cp', 'cpv');
-  syncRange('fs', 'fsv');
-  syncRange('ld', 'ldv');
-  syncRange('layers', 'layersv');
-  $('stagger').addEventListener('input', () => {
-    $('staggerv').textContent = '.' + String($('stagger').value).padStart(2, '0');
-    $('presetSelect').value = 'custom';
-  });
-
-  $('presetSelect').addEventListener('change', (e) => {
-    const p = PRESETS[e.target.value];
-    if (!p) return;
-    $('hier').value = p.hier;
-    $('mode').value = p.mode;
-    $('cp').value = p.cp;
-    $('cpv').textContent = p.cp;
-    $('fs').value = p.fs;
-    $('fsv').textContent = p.fs;
-    $('ld').value = p.ld;
-    $('ldv').textContent = p.ld;
-    $('upscale').value = p.upscale;
-    $('animStyle').value = p.anim;
-    $('layers').value = p.layers;
-    $('layersv').textContent = p.layers;
-    $('stagger').value = p.stagger;
-    $('staggerv').textContent = '.' + String(p.stagger).padStart(2, '0');
-    $('sketch').checked = p.sketch;
-
-    if (SRC) triggerTrace();
-  });
 }
 
 function computePreviewBox() {
-  if (!SRC) return { w: 320, h: 240 };
-  const availW = Math.min(480, Math.max(220, window.innerWidth - (window.innerWidth <= 960 ? 40 : 640)));
-  const availH = Math.max(220, Math.round(window.innerHeight * 0.58));
-  const scale = Math.min(availW / SRC.w, availH / SRC.h);
+  if (!Store.src) return { w: 480, h: 320 };
+  const { vw, vh } = getViewportSize();
+  const dual = Store.view === 'side' && !$('sideWrap').hidden;
+  const availW = dual ? (vw - 12) / 2 : vw;
+  const scale = Math.min(availW / Store.src.w, vh / Store.src.h);
   return {
-    w: Math.round(SRC.w * scale),
-    h: Math.round(SRC.h * scale)
+    w: Math.max(80, Math.round(Store.src.w * scale)),
+    h: Math.max(60, Math.round(Store.src.h * scale)),
   };
 }
 
-function updatePreviewGeometry() {
-  if (!SRC) return;
-  const box = computePreviewBox();
+function paintCanvas(cv, w, h) {
+  cv.width = w; cv.height = h;
+  cv.getContext('2d').drawImage(Store.src.canvas, 0, 0, w, h);
+}
 
+function updatePreviewGeometry() {
+  if (!Store.src) return;
+  const box = computePreviewBox();
   const diffBox = $('diffBox');
   diffBox.style.width = box.w + 'px';
   diffBox.style.height = box.h + 'px';
-
-  const diffCv = $('diffCv');
-  diffCv.width = box.w;
-  diffCv.height = box.h;
-  diffCv.getContext('2d').drawImage(SRC.canvas, 0, 0, box.w, box.h);
-
+  paintCanvas($('diffCv'), box.w, box.h);
   ['pvSrc', 'pvOut'].forEach((id) => {
-    const el = $(id);
-    el.style.width = box.w + 'px';
-    el.style.height = box.h + 'px';
+    $(id).style.width = box.w + 'px';
+    $(id).style.height = box.h + 'px';
   });
-
-  const cvSrc = $('cvSrc');
-  cvSrc.width = box.w;
-  cvSrc.height = box.h;
-  cvSrc.getContext('2d').drawImage(SRC.canvas, 0, 0, box.w, box.h);
+  paintCanvas($('cvSrc'), box.w, box.h);
 }
 
-window.addEventListener('resize', () => {
-  if (SRC && !$('stageWrap').hidden) updatePreviewGeometry();
-});
+const schedulePreviewResize = () => {
+  if (!Store.src || $('stageWrap').hidden) return;
+  cancelAnimationFrame(Store.resizeRaf);
+  Store.resizeRaf = requestAnimationFrame(updatePreviewGeometry);
+};
+const schedulePreviewResizeDebounced = debounce(schedulePreviewResize, 80);
 
-// 4. 图片输入多通道（文件上传、拖放、Ctrl+V 粘贴）
+/* ---------- 5. 图片输入 ---------- */
 async function processFile(file) {
+  if (!file || Store.busy) return;
   try {
-    log('正在解码图片文件…', true);
+    BodyState.set(true);
+    log('DECODING SOURCE BITMAP...', true);
     const bmp = await createImageBitmap(file);
     await wait(20);
 
     const upscale = Number($('upscale').value);
-    let targetW = bmp.width * upscale;
-    let targetH = bmp.height * upscale;
-
-    // 大图限制，保证毫秒级转换性能
-    const MAX_DIM = 2048;
-    if (Math.max(targetW, targetH) > MAX_DIM) {
-      const k = MAX_DIM / Math.max(targetW, targetH);
-      targetW = Math.round(targetW * k);
-      targetH = Math.round(targetH * k);
+    let tw = bmp.width * upscale, th = bmp.height * upscale;
+    const MAX = 2048;
+    if (Math.max(tw, th) > MAX) {
+      const k = MAX / Math.max(tw, th);
+      tw = Math.round(tw * k); th = Math.round(th * k);
     }
-
     const cv = document.createElement('canvas');
-    cv.width = targetW;
-    cv.height = targetH;
+    cv.width = tw; cv.height = th;
     const ctx = cv.getContext('2d');
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(bmp, 0, 0, targetW, targetH);
+    ctx.drawImage(bmp, 0, 0, tw, th);
+    const imgData = ctx.getImageData(0, 0, tw, th);
 
-    const imgData = ctx.getImageData(0, 0, targetW, targetH);
-    SRC = {
-      canvas: cv,
-      w: targetW,
-      h: targetH,
-      rgba: imgData.data,
-      originalBmp: bmp
-    };
+    Store.src = { canvas: cv, w: tw, h: th, rgba: imgData.data };
+    try { bmp.close && bmp.close(); } catch (_) {}
 
     $('stageWrap').hidden = false;
+    $('stageEmpty').hidden = true;
     $('viewTabs').hidden = false;
-    updatePreviewGeometry();
+    requestAnimationFrame(() => { updatePreviewGeometry(); requestAnimationFrame(updatePreviewGeometry); });
 
-    log(`已载入图片: ${bmp.width}×${bmp.height} ${upscale > 1 ? `(超采样尺寸: ${targetW}×${targetH})` : ''}`);
-    $('retrace').disabled = false;
+    log(`SOURCE LOADED: ${bmp.width}×${bmp.height}px → ${tw}×${th}`);
+    BodyState.set(false);
     await triggerTrace();
   } catch (err) {
-    log(`图片载入失败: ${err.message}`);
+    BodyState.set(false);
+    log(`INPUT ERROR: ${err.message}`);
     console.error(err);
   }
 }
 
 function initUploadChannels() {
-  const dropZone = $('drop');
-  const fileInput = $('file');
+  const drop = $('drop');
+  const empty = $('stageEmpty');
+  const input = $('file');
+  const pick = () => input.click();
+  const zones = [drop, empty].filter(Boolean);
 
-  dropZone.addEventListener('click', (e) => {
-    if (e.target !== fileInput) fileInput.click();
+  drop.addEventListener('click', (e) => { if (e.target !== input) pick(); });
+  drop.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); }
   });
-
-  fileInput.addEventListener('change', (e) => {
-    if (e.target.files?.[0]) processFile(e.target.files[0]);
+  // 空状态即入口：点击 / 回车 / 拖放都直达选择器
+  if (empty) {
+    empty.addEventListener('click', pick);
+    empty.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); }
+    });
+  }
+  input.addEventListener('change', (e) => {
+    if (e.target.files && e.target.files[0]) void processFile(e.target.files[0]);
+    input.value = '';
   });
-
-  dropZone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    dropZone.classList.add('over');
+  zones.forEach((z) => {
+    ['dragover', 'dragenter'].forEach((ev) => z.addEventListener(ev, (e) => { e.preventDefault(); z.classList.add('over'); }));
+    z.addEventListener('dragleave', () => z.classList.remove('over'));
+    z.addEventListener('drop', (e) => {
+      e.preventDefault();
+      z.classList.remove('over');
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) void processFile(e.dataTransfer.files[0]);
+    });
   });
-
-  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('over'));
-
-  dropZone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dropZone.classList.remove('over');
-    if (e.dataTransfer.files?.[0]) processFile(e.dataTransfer.files[0]);
-  });
-
-  // 全局截图直接 Ctrl+V 粘贴
   window.addEventListener('paste', (e) => {
     const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
     if (!items) return;
     for (const item of items) {
       if (item.type.indexOf('image') !== -1) {
-        const pastedFile = item.getAsFile();
-        if (pastedFile) {
-          processFile(pastedFile);
-          break;
-        }
+        const f = item.getAsFile();
+        if (f) { void processFile(f); break; }
       }
     }
   });
 }
 
-// 5. 矢量化转换触发
-async function triggerTrace() {
-  if (!SRC) return;
-  log('VTracer WASM 运算处理中…', true);
-  await wait(30);
+/* ---------- 6. 描摹 ---------- */
+function setExportEnabled(on) {
+  ['dlsvg', 'dlpng', 'dlstatic', 'dlanim', 'btnViewCode', 'replay'].forEach((id) => { $(id).disabled = !on; });
+}
 
+async function triggerTrace() {
+  if (!Store.src || Store.busy) return;
+  BodyState.set(true);
+  setExportEnabled(false);
+  log('VTRACER CORE RUNNING...', true);
+  await wait(30);
   try {
     const t0 = performance.now();
-    const config = {
+    const cfg = {
       mode: $('mode').value,
       hierarchical: $('hier').value,
       colorPrecision: Number($('cp').value),
       filterSpeckle: Number($('fs').value),
       layerDifference: Number($('ld').value),
-      pathPrecision: 2
+      pathPrecision: 2,
     };
-
-    const svgResult = window.VTracer.convertPixels(SRC.rgba, SRC.w, SRC.h, config);
+    const raw = window.VTracer.convertPixels(Store.src.rgba, Store.src.w, Store.src.h, cfg);
     const ms = Math.round(performance.now() - t0);
-    CURRENT_SVG = ensureViewBox(svgResult, SRC.w, SRC.h);
+    Store.svg = ensureViewBox(raw, Store.src.w, Store.src.h);
 
-    const pathCount = (CURRENT_SVG.match(/<path/g) || []).length;
-    const kb = (new Blob([CURRENT_SVG]).size / 1024).toFixed(1);
+    const pathCount = (Store.svg.match(/<path/g) || []).length;
+    const kb = (new Blob([Store.svg]).size / 1024).toFixed(1);
+    $('stats').innerHTML =
+      `<span class="chip">PATHS <b>${pathCount}</b></span>` +
+      `<span class="chip">SIZE <b>${kb}</b>KB</span>` +
+      `<span class="chip">CYCLE <b>${ms}</b>ms</span>` +
+      `<span class="chip hide-sm">CANVAS <b>${Store.src.w}×${Store.src.h}</b></span>`;
 
-    $('stats').hidden = false;
-    $('stats').innerHTML = `
-      <span class="chip">路径段数 <b>${pathCount}</b></span>
-      <span class="chip">SVG 体积 <b>${kb}</b> KB</span>
-      <span class="chip">耗时 <b>${ms}</b> ms</span>
-      <span class="chip">分辨率 <b>${SRC.w}×${SRC.h}</b></span>
-    `;
-
-    renderSvgToContainers(CURRENT_SVG);
-
-    ['dlsvg', 'dlpng', 'dlstatic', 'dlanim', 'btnViewCode', 'replay'].forEach(
-      (id) => ($(id).disabled = false)
-    );
-
-    log('描摹完成！可在舞台区拖动滑动条对比，或点击「播放动效」。');
+    renderSvgToContainers(Store.svg);
+    setExportEnabled(true);
+    log('TRACE COMPLETE // 拖动卷帘对比或触发动效');
   } catch (err) {
-    log(`描摹失败: ${err.message}`);
+    log(`COMPUTE FAULT: ${err.message}`);
     console.error(err);
+  } finally {
+    BodyState.set(false);
+    if (Store.svg) setExportEnabled(true);
   }
 }
 
 function renderSvgToContainers(svg) {
   $('diffSvg').innerHTML = svg;
-  $('pvOut').innerHTML = `<span class="tag" id="pvOutTag">SVG</span>` + svg;
+  $('pvOut').innerHTML = '<span class="tag" id="pvOutTag">SVG</span>' + svg;
 }
 
-// 6. 视图切换与卷帘滑动条
-function initViews() {
-  const diffRange = $('diffRange');
+/* ---------- 7. 视图 ---------- */
+function setView(view) {
+  Store.view = view;
+  document.body.dataset.view = view;
+  $$('#viewTabs .tab-btn').forEach((b) => {
+    const on = b.dataset.view === view;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
   const diffBox = $('diffBox');
+  if (view === 'split') {
+    diffBox.hidden = false;
+    $('sideWrap').hidden = true;
+    diffBox.style.setProperty('--split', '50');
+    $('diffRange').value = 50;
+  } else if (view === 'side') {
+    diffBox.hidden = true;
+    $('sideWrap').hidden = false;
+    $('pvSrc').hidden = false;
+  } else {
+    diffBox.hidden = true;
+    $('sideWrap').hidden = false;
+    $('pvSrc').hidden = true;
+  }
+  schedulePreviewResize();
+}
 
-  diffRange.addEventListener('input', (e) => {
-    diffBox.style.setProperty('--split', e.target.value);
-  });
-
+function initViews() {
+  const diffBox = $('diffBox');
+  $('diffRange').addEventListener('input', (e) => diffBox.style.setProperty('--split', e.target.value));
   $('viewTabs').addEventListener('click', (e) => {
-    if (!e.target.classList.contains('tab-btn')) return;
-    document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
-    e.target.classList.add('active');
-
-    const view = e.target.dataset.view;
-    if (view === 'split') {
-      diffBox.hidden = false;
-      $('sideWrap').hidden = true;
-      diffBox.style.setProperty('--split', '50');
-      diffRange.value = 50;
-    } else if (view === 'side') {
-      diffBox.hidden = true;
-      $('sideWrap').hidden = false;
-      $('pvSrc').parentElement.hidden = false;
-    } else if (view === 'svg') {
-      diffBox.hidden = true;
-      $('sideWrap').hidden = false;
-      $('pvSrc').parentElement.hidden = true;
-    }
+    const btn = e.target.closest('.tab-btn');
+    if (btn) setView(btn.dataset.view);
   });
 }
 
-// 7. 动画播放与控制系统
+/* ---------- 8. 播放器 ---------- */
+function stopTimer() { if (Store.animTimer) { clearTimeout(Store.animTimer); Store.animTimer = 0; } }
+
+function setPlayIcon(playing) {
+  $('playIcon').style.display = playing ? 'none' : 'block';
+  $('pauseIcon').style.display = playing ? 'block' : 'none';
+}
+
 function playAnimation() {
-  if (!CURRENT_SVG || !SRC) return;
-
-  const opts = {
-    style: $('animStyle').value,
-    layers: Number($('layers').value),
-    stagger: Number($('stagger').value) / 100,
-    sketch: $('sketch').checked
-  };
-
-  const anim = buildAnimationData(CURRENT_SVG, opts);
+  if (!Store.svg || !Store.src || Store.busy) return;
+  const opts = readAnimOpts();
+  const anim = buildAnimationData(Store.svg, opts);
   const isBeam = opts.style === 'beam';
 
-  const innerSvgContent = isBeam
+  const inner = isBeam
     ? anim.colorBody
-    : (opts.sketch ? `<g class="skst">\n${anim.sketchHtml}\n</g>\n<use href="#art" class="sketch"/>\n` : '') + `<g id="art">\n${anim.colorBody}\n</g>`;
+    : (opts.sketch
+        ? `<g class="skst">\n${anim.sketchHtml}\n</g>\n<use href="#art" class="sketch"/>\n`
+        : '') + `<g id="art">\n${anim.colorBody}\n</g>`;
+  const extra = isBeam ? '<div class="glow"></div>' : '';
 
-  const extra = isBeam ? '<div class="glow"></div>\n<div class="shine"></div>' : '';
-
-  const hostContainers = [$('diffSvg'), $('pvOut')];
-
-  hostContainers.forEach((container) => {
-    container.innerHTML = `
-      <svg version="1.1" viewBox="0 0 ${SRC.w} ${SRC.h}" xmlns="http://www.w3.org/2000/svg" class="${isBeam ? 'beam-svg' : ''}">
-        ${innerSvgContent}
-      </svg>
-      ${extra}
-    `;
-
-    const svgEl = container.querySelector('svg');
-    if (svgEl && !isBeam) {
+  [$('diffSvg'), $('pvOut')].forEach((host) => {
+    const keepTag = host.id === 'pvOut' ? '<span class="tag" id="pvOutTag">SVG</span>' : '';
+    host.innerHTML = keepTag +
+      `<svg version="1.1" viewBox="0 0 ${Store.src.w} ${Store.src.h}" xmlns="http://www.w3.org/2000/svg" class="${isBeam ? 'beam-svg' : ''}">${inner}</svg>${extra}`;
+    const svgEl = host.querySelector('svg');
+    if (svgEl && !isBeam && anim.timing.tone != null) {
       svgEl.style.setProperty('--tone', `${anim.timing.tone.toFixed(2)}s`);
       svgEl.style.setProperty('--ink', `${anim.timing.ink.toFixed(2)}s`);
       svgEl.style.setProperty('--out', `${anim.timing.out.toFixed(2)}s`);
@@ -403,73 +430,61 @@ function playAnimation() {
     }
   });
 
-  // 计算动画时长与播速
   const duration = isBeam ? 3.4 : anim.timing.total;
-  const speed = Number($('animSpeed').value);
-  const effectiveDuration = duration / speed;
+  const effective = duration / Number($('animSpeed').value);
+  const wrap = $('stageWrap');
+  wrap.style.setProperty('--total-duration', `${effective}s`);
+  wrap.style.setProperty('--play-state', 'running');
+  wrap.classList.remove('playing');
+  void wrap.offsetWidth;
+  wrap.classList.add('playing');
 
-  const stageWrap = $('stageWrap');
-  stageWrap.style.setProperty('--total-duration', `${effectiveDuration}s`);
-  stageWrap.style.setProperty('--play-state', 'running');
+  Store.playing = true;
+  Store.paused = false;
+  setPlayIcon(true);
+  stopTimer();
+  Store.animTimer = setTimeout(() => {
+    if ($('animLoop').checked) playAnimation();
+    else { Store.playing = false; Store.paused = true; setPlayIcon(false); }
+  }, effective * 1000);
 
-  // 触发重绘播放动画
-  stageWrap.classList.remove('playing');
-  void stageWrap.offsetWidth;
-  stageWrap.classList.add('playing');
-
-  isPaused = false;
-  $('playIcon').style.display = 'none';
-  $('pauseIcon').style.display = 'block';
-
-  if (animTimer) clearTimeout(animTimer);
-  animTimer = setTimeout(() => {
-    if ($('animLoop').checked) {
-      playAnimation();
-    } else {
-      isPaused = true;
-      $('playIcon').style.display = 'block';
-      $('pauseIcon').style.display = 'none';
-    }
-  }, effectiveDuration * 1000);
-
-  log(`正在播放动效（图层: ${anim.layerCount} · 预计时长: ${effectiveDuration.toFixed(1)}s）`);
+  log(`TIMELINE RUNNING // ${anim.layerCount} LAYERS · ${effective.toFixed(1)}s`);
 }
 
-function initAnimationControls() {
+function togglePlay() {
+  const wrap = $('stageWrap');
+  if (!wrap.classList.contains('playing')) { playAnimation(); return; }
+  if (Store.paused) {
+    wrap.style.setProperty('--play-state', 'running');
+    Store.paused = false; Store.playing = true; setPlayIcon(true);
+  } else {
+    wrap.style.setProperty('--play-state', 'paused');
+    Store.paused = true; Store.playing = false; setPlayIcon(false);
+    stopTimer();
+  }
+}
+
+function initPlayer() {
   $('replay').addEventListener('click', playAnimation);
   $('btnReplay').addEventListener('click', playAnimation);
-
-  $('btnPlayPause').addEventListener('click', () => {
-    const stageWrap = $('stageWrap');
-    if (!stageWrap.classList.contains('playing')) {
-      playAnimation();
-      return;
-    }
-
-    if (isPaused) {
-      stageWrap.style.setProperty('--play-state', 'running');
-      isPaused = false;
-      $('playIcon').style.display = 'none';
-      $('pauseIcon').style.display = 'block';
-    } else {
-      stageWrap.style.setProperty('--play-state', 'paused');
-      isPaused = true;
-      $('playIcon').style.display = 'block';
-      $('pauseIcon').style.display = 'none';
-      if (animTimer) clearTimeout(animTimer);
-    }
-  });
-
+  $('btnPlayPause').addEventListener('click', togglePlay);
   $('animSpeed').addEventListener('change', () => {
-    if ($('stageWrap').classList.contains('playing')) {
-      playAnimation();
-    }
+    if ($('stageWrap').classList.contains('playing') && !Store.paused) playAnimation();
   });
 }
 
-// 8. 静态与动画 HTML 导出生成器
+/* ---------- 9. 导出 ---------- */
+function downloadBlob(filename, content, mime) {
+  const blob = content instanceof Blob ? content : new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
 function buildStaticHtml(svgText, w, h) {
-  const normalizedSvg = ensureViewBox(svgText, w, h);
+  const svg = ensureViewBox(svgText, w, h);
   return `<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -478,23 +493,13 @@ function buildStaticHtml(svgText, w, h) {
 <title>VectorPulse · Static SVG Output</title>
 <style>
   * { box-sizing: border-box; }
-  html, body { margin: 0; min-height: 100%; display: grid; place-items: center; background: #080d0d; }
-  .stage {
-    position: relative;
-    aspect-ratio: ${w} / ${h};
-    width: min(90vw, calc(90vh * ${w} / ${h}));
-    overflow: hidden;
-    border-radius: 8px;
-    background: #fff;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.6);
-  }
+  html, body { margin: 0; min-height: 100%; display: grid; place-items: center; background: #e7e4db; }
+  .stage { position: relative; aspect-ratio: ${w} / ${h}; width: min(90vw, calc(90vh * ${w} / ${h})); border-radius: 3px; background: #fff; border: 2px solid #141414; box-shadow: 4px 4px 0 #141414; overflow: hidden; }
   .stage svg { width: 100%; height: 100%; display: block; }
 </style>
 </head>
 <body>
-  <div class="stage">
-    ${normalizedSvg}
-  </div>
+  <div class="stage">${svg}</div>
 </body>
 </html>`;
 }
@@ -503,69 +508,30 @@ function buildAnimatedHtml(svgText, w, h, opts) {
   const isBeam = opts.style === 'beam';
   const anim = buildAnimationData(svgText, opts);
   const t = anim.timing;
-
   const beamCSS = isBeam ? `
-    .frame svg {
-      transform: scale(1.04);
-      filter: brightness(.85) saturate(.95);
-      -webkit-mask-image: linear-gradient(105deg, #000 42%, rgba(0,0,0,.35) 50%, transparent 58%);
-      mask-image: linear-gradient(105deg, #000 42%, rgba(0,0,0,.35) 50%, transparent 58%);
-      -webkit-mask-size: 260% 100%;
-      mask-size: 260% 100%;
-      -webkit-mask-repeat: no-repeat;
-      mask-repeat: no-repeat;
-    }
-    .playing svg {
-      animation: reveal 2.5s cubic-bezier(.55,.06,.28,.99) forwards,
-                 bzoom 3.2s cubic-bezier(.2,.6,.2,1) forwards,
-                 bbright 3.2s ease forwards;
-    }
+    .frame svg { transform: scale(1.03); -webkit-mask-image: linear-gradient(105deg, #000 42%, rgba(0,0,0,.35) 50%, transparent 58%); mask-image: linear-gradient(105deg, #000 42%, rgba(0,0,0,.35) 50%, transparent 58%); -webkit-mask-size: 260% 100%; mask-size: 260% 100%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; }
+    .playing svg { animation: reveal 2.5s cubic-bezier(.55,.06,.28,.99) forwards, bzoom 3.2s cubic-bezier(.2,.6,.2,1) forwards; }
     @keyframes reveal { from { -webkit-mask-position: 100% 0; mask-position: 100% 0; } to { -webkit-mask-position: 0% 0; mask-position: 0% 0; } }
     @keyframes bzoom { to { transform: scale(1); } }
-    @keyframes bbright { to { filter: brightness(1) saturate(1); } }
-    .glow {
-      position: absolute; top: -10%; bottom: -10%; left: 0; width: 120px; opacity: 0; pointer-events: none;
-      background: linear-gradient(90deg, transparent 0%, rgba(0,229,163,.15) 25%, rgba(100,255,217,.6) 55%, #fff 60%, rgba(100,255,217,.6) 65%, transparent 100%);
-      filter: blur(8px); mix-blend-mode: screen; z-index: 3;
-    }
+    .glow { position: absolute; top: -10%; bottom: -10%; left: 0; width: 100px; opacity: 0; pointer-events: none; background: linear-gradient(90deg, transparent 0%, rgba(255,62,0,.3) 30%, #fff 60%, rgba(255,62,0,.3) 80%, transparent 100%); filter: blur(6px); mix-blend-mode: screen; z-index: 3; }
     .playing .glow { animation: sweep 2.5s cubic-bezier(.55,.06,.28,.99) forwards; }
-    .shine {
-      position: absolute; inset: 0; opacity: 0; pointer-events: none; mix-blend-mode: screen; z-index: 4;
-      background: linear-gradient(75deg, transparent 30%, rgba(255,255,255,.1) 42%, rgba(200,255,245,.4) 50%, rgba(255,255,255,.1) 58%, transparent 70%);
-    }
-    .playing .shine { animation: shine2 1s cubic-bezier(.4,.05,.3,1) 2.7s forwards; }
-    @keyframes shine2 { 0% { opacity: 0; transform: translateX(-140%); } 25% { opacity: .85; } 100% { opacity: 0; transform: translateX(140%); } }
     @keyframes sweep { 0% { transform: translateX(-160px); opacity: 0; } 8% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateX(calc(100cqw + 80px)); opacity: 0; } }
   ` : '';
-
   const layerCSS = !isBeam ? `
     ${opts.sketch ? `
-    .skb path {
-      fill: none; stroke: #454a4d; stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 1;
-    }
-    .playing .skb path {
-      animation: draw .7s ease-out both;
-      animation-delay: calc(.2s + var(--i) * .04s);
-    }
+    .skb path { fill: none; stroke: #141414; stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 1; }
+    .playing .skb path { animation: draw .7s ease-out both; animation-delay: calc(.2s + var(--i) * .04s); }
     .playing .skst { animation: skst-out .8s ease both ${t.tone.toFixed(2)}s; }
     @keyframes draw { to { stroke-dashoffset: 0; } }
     @keyframes skst-out { from { opacity: 1; } to { opacity: 0; } }
     ` : ''}
-    .sketch { opacity: 0; filter: grayscale(1) brightness(.72) contrast(1.35); }
-    .playing .sketch {
-      will-change: opacity;
-      animation: sketch-in .8s ease-out ${(t.tone || 0).toFixed(2)}s forwards,
-                 ink .8s ease-in-out ${(t.ink || 1.1).toFixed(2)}s forwards,
-                 sketch-out 1.4s ease-in ${t.out.toFixed(2)}s forwards;
-    }
-    @keyframes sketch-in { from { opacity: 0; } to { opacity: .38; } }
-    @keyframes ink { from { opacity: .38; } to { opacity: .62; } }
+    .sketch { opacity: 0; filter: grayscale(1) brightness(.6) contrast(1.4); }
+    .playing .sketch { animation: sketch-in .8s ease-out ${(t.tone || 0).toFixed(2)}s forwards, ink .8s ease-in-out ${(t.ink || 1.1).toFixed(2)}s forwards, sketch-out 1.4s ease-in ${t.out.toFixed(2)}s forwards; }
+    @keyframes sketch-in { from { opacity: 0; } to { opacity: .45; } }
+    @keyframes ink { from { opacity: .45; } to { opacity: .75; } }
     @keyframes sketch-out { to { opacity: 0; } }
-    .pg { will-change: opacity, clip-path, transform; }
-    .playing .pg {
-      animation: .55s cubic-bezier(.45,.05,.25,1) both;
-      animation-delay: var(--d);
-    }
+    .pg { will-change: opacity, clip-path, transform; transform-box: fill-box; transform-origin: 50% 50%; }
+    .playing .pg { animation: .55s cubic-bezier(.45,.05,.25,1) both; animation-delay: var(--d); }
     .playing .wipe-r { animation-name: wipe-r; }
     .playing .wipe-l { animation-name: wipe-l; }
     .playing .wipe-d { animation-name: wipe-d; }
@@ -575,116 +541,49 @@ function buildAnimatedHtml(svgText, w, h, opts) {
     @keyframes wipe-l { 0% { opacity: 0; clip-path: polygon(100% 0,100% 0,100% 100%,100% 100%); } 35% { opacity: 1; } 100% { opacity: 1; clip-path: polygon(-3% 0,103% 0,103% 100%,-3% 100%); } }
     @keyframes wipe-d { 0% { opacity: 0; clip-path: polygon(0 0,100% 0,100% 0,0 0); } 35% { opacity: 1; } 100% { opacity: 1; clip-path: polygon(0 -3%,100% -3%,100% 113%,0 113%); } }
     @keyframes dab { 0% { opacity: 0; clip-path: circle(0% at 50% 50%); } 35% { opacity: 1; } 100% { opacity: 1; clip-path: circle(120% at 50% 50%); } }
-    @keyframes bloom { 0% { opacity: 0; filter: blur(10px); transform: scale(1.05); } 100% { opacity: 1; filter: blur(0); transform: scale(1); } }
-    .pg { transform-box: fill-box; transform-origin: 50% 50%; }
-    .playing #art { animation: settle .9s ease-out forwards; animation-delay: ${t.settle.toFixed(2)}s; }
-    @keyframes settle { from { filter: saturate(.95) brightness(1.02); } to { filter: none; } }
+    @keyframes bloom { 0% { opacity: 0; filter: blur(8px); transform: scale(1.04); } 100% { opacity: 1; filter: blur(0); transform: scale(1); } }
+    .playing #art { animation: settle .8s ease-out forwards; animation-delay: ${t.settle.toFixed(2)}s; }
+    @keyframes settle { from { filter: saturate(.9) brightness(1.02); } to { filter: none; } }
   ` : '';
-
-  const innerSvgContent = isBeam
+  const inner = isBeam
     ? anim.colorBody
     : (opts.sketch ? `<g class="skst">\n${anim.sketchHtml}\n</g>\n<use href="#art" class="sketch"/>\n` : '') + `<g id="art">\n${anim.colorBody}\n</g>`;
-
-  const extraDecor = isBeam ? '<div class="glow"></div>\n<div class="shine"></div>\n' : '';
-  const frameBg = isBeam ? '#050f0e' : '#fff';
-  const pageBg = isBeam
-    ? 'radial-gradient(90% 90% at 75% 10%, #10312e 0%, #0a1f1e 45%, #050f10 100%)'
-    : 'radial-gradient(120% 120% at 20% 0%, #f4fffc 0%, #e8f7f2 55%, #dfeee8 100%)';
-
   return `<!doctype html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>VectorPulse · Animated Motion Artwork</title>
+<title>VectorPulse · Industrial Motion Output</title>
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; min-height: 100%; }
-  body {
-    min-height: 100svh;
-    display: grid;
-    place-items: center;
-    background: ${pageBg};
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  }
-  .stage {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 16px;
-    padding: 24px 0;
-  }
-  .frame {
-    position: relative;
-    aspect-ratio: ${w} / ${h};
-    width: min(460px, 92vw, calc(80svh * ${w} / ${h}));
-    border-radius: 12px;
-    overflow: hidden;
-    isolation: isolate;
-    background: ${frameBg};
-    box-shadow: 0 0 0 1px rgba(0, 229, 163, 0.2), 0 20px 50px -10px rgba(0,0,0,0.5);
-  }
+  body { min-height: 100svh; display: grid; place-items: center; background-color: #e7e4db; background-image: radial-gradient(#141414 1px, transparent 1px); background-size: 18px 18px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  .stage { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 24px 0; }
+  .frame { position: relative; aspect-ratio: ${w} / ${h}; width: min(460px, 92vw, calc(80svh * ${w} / ${h})); border-radius: 3px; overflow: hidden; background: #fff; border: 2px solid #141414; box-shadow: 4px 4px 0 #141414; }
   .frame svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   ${layerCSS}
   ${beamCSS}
-  .bar {
-    width: min(460px, 92vw);
-    height: 4px;
-    border-radius: 99px;
-    background: rgba(0, 229, 163, 0.2);
-    overflow: hidden;
-  }
-  .bar i {
-    display: block;
-    height: 100%;
-    width: 0%;
-    border-radius: 99px;
-    background: linear-gradient(90deg, #00e5a3, #64ffd9);
-  }
-  .playing .bar i {
-    animation: bar-fill ${t.total.toFixed(2)}s linear forwards;
-  }
+  .bar { width: min(460px, 92vw); height: 8px; background: #dad6c9; border: 2px solid #141414; border-radius: 2px; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0%; background: #ff3e00; }
+  .playing .bar i { animation: bar-fill ${t.total.toFixed(2)}s linear forwards; }
   @keyframes bar-fill { to { width: 100%; } }
   .tools { display: flex; align-items: center; gap: 12px; }
-  button {
-    appearance: none;
-    border: none;
-    cursor: pointer;
-    padding: 8px 20px;
-    border-radius: 99px;
-    background: #00e5a3;
-    color: #041a15;
-    font-size: 13.5px;
-    font-weight: 700;
-    transition: transform .15s, box-shadow .15s;
-  }
-  button:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 14px rgba(0,229,163,.4);
-  }
-  button:active { transform: none; }
+  button { appearance: none; border: 2px solid #141414; cursor: pointer; padding: 8px 18px; border-radius: 3px; background: #ff3e00; color: #fff; font-size: 11.5px; font-weight: 800; text-transform: uppercase; box-shadow: 2px 2px 0 #141414; }
+  button:active { transform: translate(2px, 2px); box-shadow: none; }
 </style>
 </head>
 <body>
   <main class="stage">
     <div class="frame" id="frame">
-      <svg version="1.1" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" class="${isBeam ? 'beam-svg' : ''}">
-        ${innerSvgContent}
-      </svg>
-      ${extraDecor}
+      <svg version="1.1" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" class="${isBeam ? 'beam-svg' : ''}">${inner}</svg>
+      ${isBeam ? '<div class="glow"></div>' : ''}
     </div>
-    <div class="bar"><i id="barInner"></i></div>
-    <div class="tools">
-      <button id="replayBtn" type="button">重播动画</button>
-    </div>
+    <div class="bar"><i></i></div>
+    <div class="tools"><button id="replayBtn" type="button">RESTART 重新发生</button></div>
   </main>
   <script>
     const frame = document.getElementById('frame');
-    function restart() {
-      frame.classList.remove('playing');
-      void frame.offsetWidth;
-      frame.classList.add('playing');
-    }
+    function restart() { frame.classList.remove('playing'); void frame.offsetWidth; frame.classList.add('playing'); }
     document.getElementById('replayBtn').addEventListener('click', restart);
     window.addEventListener('DOMContentLoaded', restart);
   <\/script>
@@ -692,101 +591,93 @@ function buildAnimatedHtml(svgText, w, h, opts) {
 </html>`;
 }
 
-// 9. 导出与源码查看逻辑
-function downloadBlob(filename, content, mime) {
-  const blob = new Blob([content], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-}
-
-function initExportHandlers() {
-  $('retrace').addEventListener('click', triggerTrace);
-
+function initExporters() {
+  $('retrace').addEventListener('click', () => void triggerTrace());
   $('dlsvg').addEventListener('click', () => {
-    downloadBlob('vectorpulse-output.svg', CURRENT_SVG, 'image/svg+xml;charset=utf-8');
+    if (Store.svg) downloadBlob('vectorpulse-output.svg', Store.svg, 'image/svg+xml;charset=utf-8');
   });
-
   $('dlstatic').addEventListener('click', () => {
-    const html = buildStaticHtml(CURRENT_SVG, SRC.w, SRC.h);
-    downloadBlob('vectorpulse-static.html', html, 'text/html;charset=utf-8');
+    if (Store.svg && Store.src) downloadBlob('vectorpulse-static.html', buildStaticHtml(Store.svg, Store.src.w, Store.src.h), 'text/html;charset=utf-8');
   });
-
   $('dlanim').addEventListener('click', () => {
-    const opts = {
-      style: $('animStyle').value,
-      layers: Number($('layers').value),
-      stagger: Number($('stagger').value) / 100,
-      sketch: $('sketch').checked
-    };
-    const html = buildAnimatedHtml(CURRENT_SVG, SRC.w, SRC.h, opts);
-    downloadBlob('vectorpulse-animated.html', html, 'text/html;charset=utf-8');
+    if (Store.svg && Store.src) downloadBlob('vectorpulse-animated.html', buildAnimatedHtml(Store.svg, Store.src.w, Store.src.h, readAnimOpts()), 'text/html;charset=utf-8');
   });
-
   $('dlpng').addEventListener('click', () => {
+    if (!Store.svg || !Store.src) return;
     const scale = Number($('pngscale').value);
-    log('正在通过离屏画布渲染高清 PNG…', true);
-    const blobUrl = URL.createObjectURL(new Blob([CURRENT_SVG], { type: 'image/svg+xml;charset=utf-8' }));
+    log('RENDERING PNG OFFSCREEN...', true);
+    const url = URL.createObjectURL(new Blob([Store.svg], { type: 'image/svg+xml;charset=utf-8' }));
     const img = new Image();
-
     img.onload = () => {
       const cv = document.createElement('canvas');
-      cv.width = SRC.w * scale;
-      cv.height = SRC.h * scale;
+      cv.width = Store.src.w * scale; cv.height = Store.src.h * scale;
       const ctx = cv.getContext('2d');
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
+      ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(img, 0, 0, cv.width, cv.height);
-      URL.revokeObjectURL(blobUrl);
-
+      URL.revokeObjectURL(url);
       cv.toBlob((b) => {
-        downloadBlob(`vectorpulse-${cv.width}x${cv.height}.png`, b, 'image/png');
-        log(`PNG 导出完毕: ${cv.width}×${cv.height}`);
+        if (b) { downloadBlob(`vectorpulse-${cv.width}x${cv.height}.png`, b, 'image/png'); log(`PNG EXPORTED: ${cv.width}×${cv.height}`); }
+        else log('PNG RENDER FAILED');
       }, 'image/png');
     };
-
-    img.onerror = () => {
-      URL.revokeObjectURL(blobUrl);
-      log('PNG 转换失败，请检查浏览器安全策略。');
-    };
-
-    img.src = blobUrl;
-  });
-
-  // 查看源码模态框交互
-  const modal = $('codeModal');
-  $('btnViewCode').addEventListener('click', () => {
-    $('svgCodeArea').value = CURRENT_SVG;
-    modal.hidden = false;
-  });
-  $('closeCodeModal').addEventListener('click', () => (modal.hidden = true));
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) modal.hidden = true;
-  });
-
-  $('copySvgCode').addEventListener('click', async () => {
-    await navigator.clipboard.writeText(CURRENT_SVG);
-    log('SVG 代码已复制到剪贴板！');
-  });
-
-  $('copySvgDataUri').addEventListener('click', async () => {
-    const base64 = btoa(unescape(encodeURIComponent(CURRENT_SVG)));
-    const uri = `data:image/svg+xml;base64,${base64}`;
-    await navigator.clipboard.writeText(uri);
-    log('Data URI 已复制到剪贴板！');
+    img.onerror = () => { URL.revokeObjectURL(url); log('PNG RENDER FAILED'); };
+    img.src = url;
   });
 }
 
-// 10. 初始化启动入口
+/* ---------- 10. 源码弹窗 ---------- */
+function initModal() {
+  const modal = $('codeModal');
+  const open = () => { if (!Store.svg) return; $('svgCodeArea').value = Store.svg; modal.hidden = false; $('closeCodeModal').focus(); };
+  const close = () => { modal.hidden = true; };
+  $('btnViewCode').addEventListener('click', open);
+  $('closeCodeModal').addEventListener('click', close);
+  modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+  $('copySvgCode').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(Store.svg); log('SVG CODE COPIED'); }
+    catch (_) { log('CLIPBOARD BLOCKED'); }
+  });
+  $('copySvgDataUri').addEventListener('click', async () => {
+    try {
+      const uri = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(Store.svg)));
+      await navigator.clipboard.writeText(uri); log('DATA URI COPIED');
+    } catch (_) { log('CLIPBOARD BLOCKED'); }
+  });
+}
+
+/* ---------- 11. 快捷键 ---------- */
+function initShortcuts() {
+  window.addEventListener('keydown', (e) => {
+    if (e.target.matches('input, select, textarea')) return;
+    if (e.code === 'Space') { e.preventDefault(); if (Store.svg) togglePlay(); }
+    else if (e.key === 'r' || e.key === 'R') { if (Store.src && !$('retrace').disabled) void triggerTrace(); }
+    else if (e.key === '1') setView('split');
+    else if (e.key === '2') setView('side');
+    else if (e.key === '3') setView('svg');
+    else if (e.key === 'Escape' && !$('codeModal').hidden) $('codeModal').hidden = true;
+  });
+}
+
+/* ---------- 12. 启动 ---------- */
 function bootstrap() {
-  initRangeListeners();
+  initParams();
   initUploadChannels();
   initViews();
-  initAnimationControls();
-  initExportHandlers();
+  initPlayer();
+  initExporters();
+  initModal();
+  initShortcuts();
+  setView('split');
+  BodyState.set(false);
+
+  window.addEventListener('resize', schedulePreviewResizeDebounced);
+  if ('ResizeObserver' in window && $('stageViewport')) {
+    new ResizeObserver(schedulePreviewResize).observe($('stageViewport'));
+  }
 }
 
 window.addEventListener('DOMContentLoaded', bootstrap);
+// 暴露给调试 / 旧调用兼容
+window.VectorPulse = { triggerTrace: () => void triggerTrace(), playAnimation, setView, Store };
+
+})();
