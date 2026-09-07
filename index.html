@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <meta name="description" content="VectorPulse Studio — 本地离线光栅转矢量合成器工作站">
-  <title>VectorPulse — 作画过程放映机</title>
+  <meta name="description" content="VectorPulse Studio — 本地离线光栅转矢量合成器工作站" data-i18n-content="meta_desc">
+  <title data-i18n="doc_title">VectorPulse — 作画过程放映机</title>
   <link rel="stylesheet" href="style.css">
   <link rel="preload" href="vtracer_bg.wasm" as="fetch" type="application/wasm" crossorigin>
 </head>
@@ -16,78 +16,78 @@
     <div class="brand">
       <span class="status-led" aria-hidden="true"></span>
       <h1>Vector<b>Pulse</b></h1>
-      <span class="brand-sub">UNIT-01 // RASTER-TO-VECTOR SYNTHESIZER</span>
+      <span class="brand-sub" data-i18n="brand_sub">UNIT-01 // RASTER-TO-VECTOR SYNTHESIZER</span>
     </div>
-    <div class="header-badges" aria-label="系统状态">
-      <span class="badge">CORE: VTRACER-WASM</span>
-      <span class="badge badge-live"><i class="dot" aria-hidden="true"></i>LOCAL</span>
-      <span class="badge hide-sm">CLK: 60FPS</span>
+    <div class="header-badges" aria-label="系统状态" data-i18n-aria-label="badges_aria">
+      <span class="badge" data-i18n="badge_core">CORE: VTRACER-WASM</span>
+      <span class="badge badge-live"><i class="dot" aria-hidden="true"></i><span data-i18n="badge_local">LOCAL</span></span>
+      <span class="badge hide-sm" data-i18n="badge_clk">CLK: 60FPS</span>
     </div>
   </header>
 
   <div class="layout">
     <!-- 左机架：描摹引擎 -->
-    <aside class="rack rack-left" aria-label="描摹引擎机架">
+    <aside class="rack rack-left" aria-label="描摹引擎机架" data-i18n-aria-label="rack_left_aria">
       <section class="sec" aria-labelledby="t-preset">
         <span class="screw tl" aria-hidden="true">+</span><span class="screw tr" aria-hidden="true">+</span>
-        <h2 id="t-preset">MOD.01 // Preset Deck</h2>
-        <label class="fld-label" for="presetSelect">预设方案</label>
+        <h2 id="t-preset" data-i18n="mod01_title">MOD.01 // Preset Deck</h2>
+        <label class="fld-label" for="presetSelect" data-i18n="preset_label">预设方案</label>
         <select id="presetSelect">
-          <option value="custom">MANUAL 自定义参数</option>
-          <option value="balanced" selected>BALANCED 标准插画平衡</option>
-          <option value="logo">LOGO 极简纯平色块</option>
-          <option value="anime">ANIME 高精细度线面</option>
-          <option value="photo">PHOTO 摄影人像滤波</option>
-          <option value="lineart">LINEART 钢笔硬速写</option>
+          <option value="custom" data-i18n="opt_custom">MANUAL 自定义参数</option>
+          <option value="balanced" selected data-i18n="opt_balanced">BALANCED 标准插画平衡</option>
+          <option value="logo" data-i18n="opt_logo">LOGO 极简纯平色块</option>
+          <option value="anime" data-i18n="opt_anime">ANIME 高精细度线面</option>
+          <option value="photo" data-i18n="opt_photo">PHOTO 摄影人像滤波</option>
+          <option value="lineart" data-i18n="opt_lineart">LINEART 钢笔硬速写</option>
         </select>
-        <p class="hint">标准硬件滤波预设，拖动下方推子自动切入 MANUAL。</p>
+        <p class="hint" data-i18n="preset_hint">标准硬件滤波预设，拖动下方推子自动切入 MANUAL。</p>
       </section>
 
       <section class="sec sec-grow" aria-labelledby="t-params">
         <span class="screw tl" aria-hidden="true">+</span><span class="screw tr" aria-hidden="true">+</span>
-        <h2 id="t-params">MOD.02 // Parameters</h2>
+        <h2 id="t-params" data-i18n="mod02_title">MOD.02 // Parameters</h2>
 
         <div class="row">
-          <label for="hier">图层拓扑</label>
+          <label for="hier" data-i18n="hier_label">图层拓扑</label>
           <select id="hier">
-            <option value="stacked">STACKED 叠层</option>
-            <option value="cutout">CUTOUT 挖剪</option>
+            <option value="stacked" data-i18n="hier_stacked">STACKED 叠层</option>
+            <option value="cutout" data-i18n="hier_cutout">CUTOUT 挖剪</option>
           </select>
         </div>
         <div class="row">
-          <label for="mode">拟合样条</label>
+          <label for="mode" data-i18n="mode_label">拟合样条</label>
           <select id="mode">
-            <option value="spline">SPLINE 样条</option>
-            <option value="polygon">POLYGON 折线</option>
-            <option value="none">PIXEL 像素</option>
+            <option value="spline" data-i18n="mode_spline">SPLINE 样条</option>
+            <option value="polygon" data-i18n="mode_polygon">POLYGON 折线</option>
+            <option value="none" data-i18n="mode_pixel">PIXEL 像素</option>
           </select>
         </div>
         <div class="row">
-          <label for="cp">色彩精度</label>
+          <label for="cp" data-i18n="cp_label">色彩精度</label>
           <input type="range" id="cp" min="1" max="10" step="1" value="7">
           <output class="val" id="cpv" for="cp">7</output>
         </div>
         <div class="row">
-          <label for="fs">杂斑滤波</label>
+          <label for="fs" data-i18n="fs_label">杂斑滤波</label>
           <input type="range" id="fs" min="0" max="30" step="1" value="4">
           <output class="val" id="fsv" for="fs">4</output>
         </div>
         <div class="row">
-          <label for="ld">色阶跨度</label>
+          <label for="ld" data-i18n="ld_label">色阶跨度</label>
           <input type="range" id="ld" min="2" max="64" step="1" value="16">
           <output class="val" id="ldv" for="ld">16</output>
         </div>
         <div class="row">
-          <label for="upscale">超采样</label>
+          <label for="upscale" data-i18n="upscale_label">超采样</label>
           <select id="upscale">
-            <option value="1">1X 原尺寸</option>
-            <option value="2" selected>2X 双倍采样</option>
-            <option value="4">4X 极致精细</option>
+            <option value="1" data-i18n="upscale_1x">1X 原尺寸</option>
+            <option value="2" selected data-i18n="upscale_2x">2X 双倍采样</option>
+            <option value="4" data-i18n="upscale_4x">4X 极致精细</option>
           </select>
         </div>
 
         <div class="sec-foot">
-          <button class="bt primary" id="retrace" type="button" disabled>↻ Execute Retrace 重算</button>
+          <button class="bt primary" id="retrace" type="button" disabled data-i18n="retrace_btn">↻ Execute Retrace 重算</button>
         </div>
       </section>
 
@@ -95,22 +95,22 @@
     </aside>
 
     <!-- 中央舞台 -->
-    <main class="rack-center" aria-label="中央监视舞台">
-      <div class="drop" id="drop" role="button" tabindex="0" aria-label="载入位图：点击选择、拖放或粘贴">
+    <main class="rack-center" aria-label="中央监视舞台" data-i18n-aria-label="stage_aria">
+      <div class="drop" id="drop" role="button" tabindex="0" aria-label="载入位图：点击选择、拖放或粘贴" data-i18n-aria-label="drop_aria">
         <div class="drop-icon" aria-hidden="true">⇪</div>
         <div class="drop-text">
-          <b>INJECT SOURCE BITMAP</b><span class="drop-sep"> [拖放 / 点击 / 粘贴]</span><br>
-          <span class="drop-sub"><kbd>Ctrl + V</kbd> 剪贴板直注 · PNG / JPG / WebP</span>
+          <b data-i18n="drop_title">INJECT SOURCE BITMAP</b><span class="drop-sep" data-i18n="drop_sep"> [拖放 / 点击 / 粘贴]</span><br>
+          <span class="drop-sub"><kbd>Ctrl + V</kbd> <span data-i18n="drop_sub">剪贴板直注 · PNG / JPG / WebP</span></span>
         </div>
         <input type="file" id="file" accept="image/*" hidden tabindex="-1">
       </div>
 
       <div class="screen-hud">
         <div class="stats" id="stats" aria-live="polite"></div>
-        <div class="view-tabs" id="viewTabs" role="tablist" aria-label="视图切换" hidden>
-          <button class="tab-btn" data-view="split" role="tab" aria-selected="false" type="button">Split 卷帘</button>
-          <button class="tab-btn active" data-view="side" role="tab" aria-selected="true" type="button">Dual 并排</button>
-          <button class="tab-btn" data-view="svg" role="tab" aria-selected="false" type="button">Mono 矢量</button>
+        <div class="view-tabs" id="viewTabs" role="tablist" aria-label="视图切换" data-i18n-aria-label="views_aria" hidden>
+          <button class="tab-btn" data-view="split" role="tab" aria-selected="false" type="button" data-i18n="view_split">Split 卷帘</button>
+          <button class="tab-btn active" data-view="side" role="tab" aria-selected="true" type="button" data-i18n="view_dual">Dual 并排</button>
+          <button class="tab-btn" data-view="svg" role="tab" aria-selected="false" type="button" data-i18n="view_mono">Mono 矢量</button>
         </div>
       </div>
 
@@ -120,7 +120,7 @@
           <div class="pen-tip" id="penTip" hidden aria-hidden="true">
             <span class="pen-nib">✏</span><span class="pen-trail"></span>
           </div>
-          <div id="diffBox" class="diff-container" aria-label="卷帘对比视窗" hidden>
+          <div id="diffBox" class="diff-container" aria-label="卷帘对比视窗" data-i18n-aria-label="diff_aria" hidden>
             <span class="crosshair tl" aria-hidden="true">+</span><span class="crosshair tr" aria-hidden="true">+</span>
             <span class="crosshair bl" aria-hidden="true">+</span><span class="crosshair br" aria-hidden="true">+</span>
             <div class="diff-layer diff-before">
@@ -132,7 +132,7 @@
               <span class="tag right">VECTOR TRACE</span>
             </div>
             <div class="diff-divider" id="diffDivider" aria-hidden="true"><div class="diff-handle">↔</div></div>
-            <input type="range" class="diff-slider-input" id="diffRange" min="0" max="100" value="50" aria-label="卷帘位置">
+            <input type="range" class="diff-slider-input" id="diffRange" min="0" max="100" value="50" aria-label="卷帘位置" data-i18n-aria-label="diff_range_label">
           </div>
 
           <div id="sideWrap" class="side-wrap">
@@ -146,83 +146,83 @@
           </div>
         </div>
 
-        <div class="anim-bar-wrap" id="animControls" aria-label="播控条">
-          <button class="ctrl-icon-btn" id="btnPlayPause" type="button" title="播放 / 暂停 (Space)">
+        <div class="anim-bar-wrap" id="animControls" aria-label="播控条" data-i18n-aria-label="animbar_aria">
+          <button class="ctrl-icon-btn" id="btnPlayPause" type="button" title="播放 / 暂停 (Space)" data-i18n-title="play_title">
             <svg id="playIcon" width="14" height="14" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
             <svg id="pauseIcon" width="14" height="14" fill="currentColor" viewBox="0 0 24 24" style="display:none;" aria-hidden="true"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
           </button>
-          <button class="ctrl-icon-btn" id="btnReplay" type="button" title="重播 (R)">
+          <button class="ctrl-icon-btn" id="btnReplay" type="button" title="重播 (R)" data-i18n-title="replay_title">
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
           </button>
           <div class="anim-progress" id="progressWrap" aria-hidden="true"><div class="anim-progress-inner" id="progressBar"></div></div>
-          <input type="range" class="scrub" id="scrub" min="0" max="1000" value="0" step="1" aria-label="时间轴 scrub" hidden>
-          <select id="animSpeed" aria-label="播放速度">
+          <input type="range" class="scrub" id="scrub" min="0" max="1000" value="0" step="1" aria-label="时间轴 scrub" data-i18n-aria-label="scrub_label" hidden>
+          <select id="animSpeed" aria-label="播放速度" data-i18n-aria-label="speed_label">
             <option value="0.5">0.5X</option>
             <option value="1" selected>1.0X</option>
             <option value="1.5">1.5X</option>
             <option value="2.0">2.0X</option>
           </select>
-          <label class="check inline" for="animLoop"><input type="checkbox" id="animLoop">LOOP</label>
+          <label class="check inline" for="animLoop"><input type="checkbox" id="animLoop"><span data-i18n="loop_label">LOOP</span></label>
         </div>
       </div>
 
-      <div class="stage-empty" id="stageEmpty" role="button" tabindex="0" aria-label="载入位图：点击选择、拖放或粘贴图片" title="点击选择图片 / 拖放 / Ctrl+V 粘贴">
+      <div class="stage-empty" id="stageEmpty" role="button" tabindex="0" aria-label="载入位图：点击选择、拖放或粘贴图片" data-i18n-aria-label="empty_aria" title="点击选择图片 / 拖放 / Ctrl+V 粘贴" data-i18n-title="empty_title_attr">
         <div class="big" aria-hidden="true">◈</div>
-        <div class="empty-title">AWAITING BITMAP // 等待图像注入</div>
-        <div class="empty-sub">点击选择 · 拖放图片 · <kbd>Ctrl + V</kbd> 粘贴截图</div>
+        <div class="empty-title" data-i18n="empty_title">AWAITING BITMAP // 等待图像注入</div>
+        <div class="empty-sub" data-i18n="empty_sub">点击选择 · 拖放图片 · Ctrl + V 粘贴截图</div>
       </div>
 
       <div class="stage-foot">
-        <button class="bt primary large" id="replay" type="button" disabled>▶ Trigger 动态绘制</button>
+        <button class="bt primary large" id="replay" type="button" disabled data-i18n="trigger_btn">▶ Trigger 动态绘制</button>
         <div id="log" role="status" aria-live="polite">STANDBY // 等待载入图片源</div>
       </div>
     </main>
 
     <!-- 右机架：序列 + 输出 -->
-    <aside class="rack rack-right" aria-label="序列与输出机架">
+    <aside class="rack rack-right" aria-label="序列与输出机架" data-i18n-aria-label="rack_right_aria">
       <section class="sec" aria-labelledby="t-seq">
         <span class="screw tl" aria-hidden="true">+</span><span class="screw tr" aria-hidden="true">+</span>
-        <h2 id="t-seq">MOD.03 // Timeline Seq</h2>
+        <h2 id="t-seq" data-i18n="mod03_title">MOD.03 // Timeline Seq</h2>
         <div class="row">
-          <label for="animStyle">动效流派</label>
+          <label for="animStyle" data-i18n="animstyle_label">动效流派</label>
           <select id="animStyle">
-            <option value="paint">HAND-PAINT 手绘</option>
-            <option value="bloom">BLOOM 水彩绽放</option>
-            <option value="beam">CYBER-BEAM 极光</option>
+            <option value="paint" data-i18n="style_paint">HAND-PAINT 手绘</option>
+            <option value="bloom" data-i18n="style_bloom">BLOOM 水彩绽放</option>
+            <option value="beam" data-i18n="style_beam">CYBER-BEAM 极光</option>
           </select>
         </div>
         <div class="row">
-          <label for="layers">步进层数</label>
+          <label for="layers" data-i18n="layers_label">步进层数</label>
           <input type="range" id="layers" min="6" max="80" step="1" value="36">
           <output class="val" id="layersv" for="layers">36</output>
         </div>
         <div class="row">
-          <label for="stagger">节拍时延</label>
+          <label for="stagger" data-i18n="stagger_label">节拍时延</label>
           <input type="range" id="stagger" min="3" max="35" step="1" value="14">
           <output class="val" id="staggerv" for="stagger">.14</output>
         </div>
-        <label class="check" for="sketch"><input type="checkbox" id="sketch" checked>底层线稿速写</label>
-        <label class="check" for="penFollow"><input type="checkbox" id="penFollow" checked>笔尖跟随</label>
+        <label class="check" for="sketch"><input type="checkbox" id="sketch" checked><span data-i18n="sketch_label">底层线稿速写</span></label>
+        <label class="check" for="penFollow"><input type="checkbox" id="penFollow" checked><span data-i18n="penfollow_label">笔尖跟随</span></label>
         <p class="hint" id="engineHint">ENGINE: …</p>
       </section>
 
       <section class="sec sec-grow" aria-labelledby="t-io">
         <span class="screw tl" aria-hidden="true">+</span><span class="screw tr" aria-hidden="true">+</span>
-        <h2 id="t-io">MOD.04 // Master I/O</h2>
+        <h2 id="t-io" data-i18n="mod04_title">MOD.04 // Master I/O</h2>
         <div class="row">
-          <label for="pngscale">PNG 倍率</label>
+          <label for="pngscale" data-i18n="pngscale_label">PNG 倍率</label>
           <select id="pngscale">
             <option value="1">1X</option>
             <option value="2" selected>2X RETINA</option>
             <option value="4">4X PRINT</option>
           </select>
         </div>
-        <div class="btns col" role="group" aria-label="导出">
-          <button class="bt" id="dlsvg" type="button" disabled>⬇ SVG 矢量</button>
-          <button class="bt" id="dlpng" type="button" disabled>⬇ PNG 位图</button>
-          <button class="bt" id="dlstatic" type="button" disabled>⬇ 静态 HTML</button>
-          <button class="bt primary" id="dlanim" type="button" disabled>🚀 动画 HTML</button>
-          <button class="bt sub" id="btnViewCode" type="button" disabled>📋 SVG 源码</button>
+        <div class="btns col" role="group" aria-label="导出" data-i18n-aria-label="export_aria">
+          <button class="bt" id="dlsvg" type="button" disabled data-i18n="dl_svg">⬇ SVG 矢量</button>
+          <button class="bt" id="dlpng" type="button" disabled data-i18n="dl_png">⬇ PNG 位图</button>
+          <button class="bt" id="dlstatic" type="button" disabled data-i18n="dl_static">⬇ 静态 HTML</button>
+          <button class="bt primary" id="dlanim" type="button" disabled data-i18n="dl_anim">🚀 动画 HTML</button>
+          <button class="bt sub" id="btnViewCode" type="button" disabled data-i18n="view_code">📋 SVG 源码</button>
         </div>
       </section>
 
@@ -230,19 +230,22 @@
     </aside>
   </div>
 
+  <!-- 右下角语言切换：固定悬浮，不占用三舱布局 -->
+  <button id="langToggle" class="lang-toggle" type="button" aria-label="Switch to English / 切换语言" data-i18n-aria-label="lang_btn_aria" title="中文 / English">EN</button>
+
   <!-- 源码检修弹窗 -->
   <div class="modal-mask" id="codeModal" hidden>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="t-code">
       <div class="modal-head">
-        <h3 id="t-code">SVG TELEMETRY // 源码检修</h3>
-        <button class="ctrl-icon-btn" id="closeCodeModal" type="button" aria-label="关闭">✕</button>
+        <h3 id="t-code" data-i18n="modal_title">SVG TELEMETRY // 源码检修</h3>
+        <button class="ctrl-icon-btn" id="closeCodeModal" type="button" aria-label="关闭" data-i18n-aria-label="modal_close">✕</button>
       </div>
       <div class="modal-body">
-        <textarea id="svgCodeArea" readonly spellcheck="false" aria-label="SVG 源码"></textarea>
+        <textarea id="svgCodeArea" readonly spellcheck="false" aria-label="SVG 源码" data-i18n-aria-label="svg_aria"></textarea>
       </div>
       <div class="modal-foot">
-        <button class="bt" id="copySvgCode" type="button">复制 SVG</button>
-        <button class="bt" id="copySvgDataUri" type="button">复制 DATA URI</button>
+        <button class="bt" id="copySvgCode" type="button" data-i18n="copy_svg">复制 SVG</button>
+        <button class="bt" id="copySvgDataUri" type="button" data-i18n="copy_uri">复制 DATA URI</button>
       </div>
     </div>
   </div>

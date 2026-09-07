@@ -17,6 +17,267 @@ const debounce = (fn, ms) => {
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 };
 
+/* ---------- 0b. 中英双语词典 + 切换 ---------- */
+const LANG_KEY = 'vectorpulse-lang';
+let lang = 'zh';
+const I18N = {
+  zh: {
+    doc_title: 'VectorPulse — 作画过程放映机',
+    meta_desc: 'VectorPulse Studio — 本地离线光栅转矢量合成器工作站',
+    brand_sub: 'UNIT-01 // RASTER-TO-VECTOR SYNTHESIZER',
+    badges_aria: '系统状态',
+    badge_core: 'CORE: VTRACER-WASM',
+    badge_local: 'LOCAL',
+    badge_clk: 'CLK: 60FPS',
+    rack_left_aria: '描摹引擎机架',
+    mod01_title: 'MOD.01 // Preset Deck',
+    preset_label: '预设方案',
+    opt_custom: 'MANUAL 自定义参数',
+    opt_balanced: 'BALANCED 标准插画平衡',
+    opt_logo: 'LOGO 极简纯平色块',
+    opt_anime: 'ANIME 高精细度线面',
+    opt_photo: 'PHOTO 摄影人像滤波',
+    opt_lineart: 'LINEART 钢笔硬速写',
+    preset_hint: '标准硬件滤波预设，拖动下方推子自动切入 MANUAL。',
+    mod02_title: 'MOD.02 // Parameters',
+    hier_label: '图层拓扑',
+    hier_stacked: 'STACKED 叠层',
+    hier_cutout: 'CUTOUT 挖剪',
+    mode_label: '拟合样条',
+    mode_spline: 'SPLINE 样条',
+    mode_polygon: 'POLYGON 折线',
+    mode_pixel: 'PIXEL 像素',
+    cp_label: '色彩精度',
+    fs_label: '杂斑滤波',
+    ld_label: '色阶跨度',
+    upscale_label: '超采样',
+    upscale_1x: '1X 原尺寸',
+    upscale_2x: '2X 双倍采样',
+    upscale_4x: '4X 极致精细',
+    retrace_btn: '↻ Execute Retrace 重算',
+    stage_aria: '中央监视舞台',
+    drop_aria: '载入位图：点击选择、拖放或粘贴',
+    drop_title: 'INJECT SOURCE BITMAP',
+    drop_sep: ' [拖放 / 点击 / 粘贴]',
+    drop_sub: '剪贴板直注 · PNG / JPG / WebP',
+    views_aria: '视图切换',
+    view_split: 'Split 卷帘',
+    view_dual: 'Dual 并排',
+    view_mono: 'Mono 矢量',
+    diff_aria: '卷帘对比视窗',
+    diff_range_label: '卷帘位置',
+    animbar_aria: '播控条',
+    play_title: '播放 / 暂停 (Space)',
+    replay_title: '重播 (R)',
+    scrub_label: '时间轴 scrub',
+    speed_label: '播放速度',
+    loop_label: 'LOOP',
+    empty_aria: '载入位图：点击选择、拖放或粘贴图片',
+    empty_title_attr: '点击选择图片 / 拖放 / Ctrl+V 粘贴',
+    empty_title: 'AWAITING BITMAP // 等待图像注入',
+    empty_sub: '点击选择 · 拖放图片 · Ctrl + V 粘贴截图',
+    trigger_btn: '▶ Trigger 动态绘制',
+    rack_right_aria: '序列与输出机架',
+    mod03_title: 'MOD.03 // Timeline Seq',
+    animstyle_label: '动效流派',
+    style_paint: 'HAND-PAINT 手绘',
+    style_bloom: 'BLOOM 水彩绽放',
+    style_beam: 'CYBER-BEAM 极光',
+    layers_label: '步进层数',
+    stagger_label: '节拍时延',
+    sketch_label: '底层线稿速写',
+    penfollow_label: '笔尖跟随',
+    mod04_title: 'MOD.04 // Master I/O',
+    pngscale_label: 'PNG 倍率',
+    export_aria: '导出',
+    dl_svg: '⬇ SVG 矢量',
+    dl_png: '⬇ PNG 位图',
+    dl_static: '⬇ 静态 HTML',
+    dl_anim: '🚀 动画 HTML',
+    view_code: '📋 SVG 源码',
+    modal_title: 'SVG TELEMETRY // 源码检修',
+    modal_close: '关闭',
+    svg_aria: 'SVG 源码',
+    copy_svg: '复制 SVG',
+    copy_uri: '复制 DATA URI',
+    lang_btn_aria: 'Switch to English / 切换语言',
+    engine_gsap: 'ENGINE: GSAP TIMELINE · scrub / 变速 / 笔尖跟随已就绪',
+    engine_css: 'ENGINE: CSS FALLBACK · CDN 未加载，已自动降级',
+    log_standby: 'STANDBY // 等待载入图片源',
+    log_decoding: 'DECODING SOURCE BITMAP...',
+    log_source_loaded: 'SOURCE LOADED: ',
+    log_trace_running: 'VTRACER CORE RUNNING...',
+    log_wasm_loading: 'WASM LOADING...',
+    log_trace_complete: 'TRACE COMPLETE // 拖动卷帘对比或触发动效',
+    log_input_error: 'INPUT ERROR: ',
+    log_compute_fault: 'COMPUTE FAULT: ',
+    log_timeline_gsap: 'TIMELINE RUNNING [GSAP] // {n} LAYERS · {s}s · scrub可用',
+    log_timeline_css: 'TIMELINE RUNNING // {n} LAYERS · {s}s',
+    log_timeline_done: 'TIMELINE DONE [GSAP] // {n} LAYERS',
+    log_png_rendering: 'RENDERING PNG OFFSCREEN...',
+    log_png_exported: 'PNG EXPORTED: ',
+    log_png_failed: 'PNG RENDER FAILED',
+    log_svg_copied: 'SVG CODE COPIED',
+    log_uri_copied: 'DATA URI COPIED',
+    log_clipboard_blocked: 'CLIPBOARD BLOCKED',
+  },
+  en: {
+    doc_title: 'VectorPulse — Painting Process Projector',
+    meta_desc: 'VectorPulse Studio — Local offline raster-to-vector synthesizer workstation',
+    brand_sub: 'UNIT-01 // RASTER-TO-VECTOR SYNTHESIZER',
+    badges_aria: 'System status',
+    badge_core: 'CORE: VTRACER-WASM',
+    badge_local: 'LOCAL',
+    badge_clk: 'CLK: 60FPS',
+    rack_left_aria: 'Trace engine rack',
+    mod01_title: 'MOD.01 // Preset Deck',
+    preset_label: 'Preset',
+    opt_custom: 'MANUAL Custom',
+    opt_balanced: 'BALANCED Standard illustration',
+    opt_logo: 'LOGO Minimal flat',
+    opt_anime: 'ANIME Detailed lines',
+    opt_photo: 'PHOTO Portrait filter',
+    opt_lineart: 'LINEART Pen sketch',
+    preset_hint: 'Stock hardware presets. Tweaking sliders switches to MANUAL.',
+    mod02_title: 'MOD.02 // Parameters',
+    hier_label: 'Topology',
+    hier_stacked: 'STACKED Layers',
+    hier_cutout: 'CUTOUT Carve',
+    mode_label: 'Fitting',
+    mode_spline: 'SPLINE Smooth',
+    mode_polygon: 'POLYGON Sharp',
+    mode_pixel: 'PIXEL Pixels',
+    cp_label: 'Color prec.',
+    fs_label: 'Speckle filter',
+    ld_label: 'Layer gap',
+    upscale_label: 'Upscale',
+    upscale_1x: '1X Original',
+    upscale_2x: '2X Double sample',
+    upscale_4x: '4X Ultra fine',
+    retrace_btn: '↻ Execute Retrace',
+    stage_aria: 'Center monitor stage',
+    drop_aria: 'Load bitmap: click to browse, drop or paste',
+    drop_title: 'INJECT SOURCE BITMAP',
+    drop_sep: ' [Drop / Click / Paste]',
+    drop_sub: 'Paste from clipboard · PNG / JPG / WebP',
+    views_aria: 'View switch',
+    view_split: 'Split Wipe',
+    view_dual: 'Dual Side',
+    view_mono: 'Mono Vector',
+    diff_aria: 'Wipe compare view',
+    diff_range_label: 'Wipe position',
+    animbar_aria: 'Playback controls',
+    play_title: 'Play / Pause (Space)',
+    replay_title: 'Replay (R)',
+    scrub_label: 'Timeline scrub',
+    speed_label: 'Playback speed',
+    loop_label: 'LOOP',
+    empty_aria: 'Load bitmap: click to browse, drop or paste image',
+    empty_title_attr: 'Click to browse / Drop / Ctrl+V paste',
+    empty_title: 'AWAITING BITMAP // Waiting for input',
+    empty_sub: 'Click to browse · Drop image · Ctrl + V paste',
+    trigger_btn: '▶ Trigger Paint',
+    rack_right_aria: 'Sequence & output rack',
+    mod03_title: 'MOD.03 // Timeline Seq',
+    animstyle_label: 'Style',
+    style_paint: 'HAND-PAINT Sketch',
+    style_bloom: 'BLOOM Watercolor',
+    style_beam: 'CYBER-BEAM Aurora',
+    layers_label: 'Layers',
+    stagger_label: 'Stagger',
+    sketch_label: 'Under sketch',
+    penfollow_label: 'Pen follow',
+    mod04_title: 'MOD.04 // Master I/O',
+    pngscale_label: 'PNG Scale',
+    export_aria: 'Export',
+    dl_svg: '⬇ SVG Vector',
+    dl_png: '⬇ PNG Bitmap',
+    dl_static: '⬇ Static HTML',
+    dl_anim: '🚀 Animated HTML',
+    view_code: '📋 SVG Source',
+    modal_title: 'SVG TELEMETRY // Source Inspector',
+    modal_close: 'Close',
+    svg_aria: 'SVG source code',
+    copy_svg: 'Copy SVG',
+    copy_uri: 'Copy DATA URI',
+    lang_btn_aria: 'Switch to English / 切换语言',
+    engine_gsap: 'ENGINE: GSAP TIMELINE · scrub / speed / pen-follow ready',
+    engine_css: 'ENGINE: CSS FALLBACK · CDN missing, auto degraded',
+    log_standby: 'STANDBY // Waiting for image input',
+    log_decoding: 'DECODING SOURCE BITMAP...',
+    log_source_loaded: 'SOURCE LOADED: ',
+    log_trace_running: 'VTRACER CORE RUNNING...',
+    log_wasm_loading: 'WASM LOADING...',
+    log_trace_complete: 'TRACE COMPLETE // Drag wipe to compare or trigger motion',
+    log_input_error: 'INPUT ERROR: ',
+    log_compute_fault: 'COMPUTE FAULT: ',
+    log_timeline_gsap: 'TIMELINE RUNNING [GSAP] // {n} LAYERS · {s}s · scrub ready',
+    log_timeline_css: 'TIMELINE RUNNING // {n} LAYERS · {s}s',
+    log_timeline_done: 'TIMELINE DONE [GSAP] // {n} LAYERS',
+    log_png_rendering: 'RENDERING PNG OFFSCREEN...',
+    log_png_exported: 'PNG EXPORTED: ',
+    log_png_failed: 'PNG RENDER FAILED',
+    log_svg_copied: 'SVG CODE COPIED',
+    log_uri_copied: 'DATA URI COPIED',
+    log_clipboard_blocked: 'CLIPBOARD BLOCKED',
+  },
+};
+
+function t(key) {
+  if (I18N[lang] && I18N[lang][key] != null) return I18N[lang][key];
+  if (I18N.zh[key] != null) return I18N.zh[key];
+  return key;
+}
+function fmt(template, vars) {
+  let s = template;
+  Object.keys(vars || {}).forEach((k) => { s = s.split('{' + k + '}').join(String(vars[k])); });
+  return s;
+}
+function applyStaticI18n() {
+  document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN';
+  document.title = t('doc_title');
+  $$('[data-i18n]').forEach((el) => {
+    const k = el.getAttribute('data-i18n');
+    const v = t(k);
+    if (v && v !== k) el.textContent = v;
+  });
+  $$('[data-i18n-aria-label]').forEach((el) => { el.setAttribute('aria-label', t(el.getAttribute('data-i18n-aria-label'))); });
+  $$('[data-i18n-title]').forEach((el) => { el.setAttribute('title', t(el.getAttribute('data-i18n-title'))); });
+  $$('[data-i18n-content]').forEach((el) => { el.setAttribute('content', t(el.getAttribute('data-i18n-content'))); });
+  const btn = $('langToggle');
+  if (btn) {
+    btn.textContent = lang === 'en' ? '中文' : 'EN';
+    btn.classList.toggle('on', lang === 'en');
+  }
+}
+function refreshEngineHint() {
+  const hint = $('engineHint');
+  if (!hint) return;
+  const eng = document.body.dataset.engine;
+  if (!eng) { hint.textContent = 'ENGINE: …'; return; }
+  hint.textContent = eng === 'gsap' ? t('engine_gsap') : t('engine_css');
+}
+function refreshDynamicI18n() {
+  refreshEngineHint();
+  if (!Store.src && !Store.svg) log(t('log_standby'));
+}
+function setLang(next) {
+  lang = next === 'en' ? 'en' : 'zh';
+  try { localStorage.setItem(LANG_KEY, lang); } catch (_) {}
+  applyStaticI18n();
+  refreshDynamicI18n();
+}
+function initI18n() {
+  try {
+    const saved = localStorage.getItem(LANG_KEY);
+    if (saved === 'en' || saved === 'zh') lang = saved;
+    else if ((navigator.language || '').toLowerCase().startsWith('en')) lang = 'en';
+  } catch (_) {}
+  applyStaticI18n();
+  const btn = $('langToggle');
+  if (btn) btn.addEventListener('click', () => setLang(lang === 'en' ? 'zh' : 'en'));
+}
+
 /* ---------- 1. 状态 ---------- */
 const Store = {
   src: null,          // { canvas, w, h, rgba }
@@ -230,7 +491,7 @@ async function processFile(file) {
   if (!file || Store.busy) return;
   try {
     BodyState.set(true);
-    log('DECODING SOURCE BITMAP...', true);
+    log(t('log_decoding'), true);
     const bmp = await createImageBitmap(file);
     await wait(20);
 
@@ -257,12 +518,12 @@ async function processFile(file) {
     $('viewTabs').hidden = false;
     requestAnimationFrame(() => { updatePreviewGeometry(); requestAnimationFrame(updatePreviewGeometry); });
 
-    log(`SOURCE LOADED: ${bmp.width}×${bmp.height}px → ${tw}×${th}`);
+    log(`${t('log_source_loaded')}${bmp.width}×${bmp.height}px → ${tw}×${th}`);
     BodyState.set(false);
     await triggerTrace();
   } catch (err) {
     BodyState.set(false);
-    log(`INPUT ERROR: ${err.message}`);
+    log(`${t('log_input_error')}${err.message}`);
     console.error(err);
   }
 }
@@ -321,13 +582,13 @@ async function triggerTrace() {
   $('stageWrap').classList.remove('playing');
   BodyState.set(true);
   setExportEnabled(false);
-  log('VTRACER CORE RUNNING...', true);
+  log(t('log_trace_running'), true);
   await wait(30);
   try {
     // WASM 双轨：外置 vtracer_bg.wasm 异步就绪，file:// 时懒加载 fallback
     if (!window.VTracer || !window.VTracer.ready) throw new Error('WASM loader missing');
     if (!window.VTRACER_WASM_READY) {
-      log('WASM LOADING...', true);
+      log(t('log_wasm_loading'), true);
       await window.VTracer.ready;
     }
     if (typeof window.VTracer.convertPixels !== 'function') {
@@ -357,9 +618,9 @@ async function triggerTrace() {
 
     renderSvgToContainers(Store.svg);
     setExportEnabled(true);
-    log('TRACE COMPLETE // 拖动卷帘对比或触发动效');
+    log(t('log_trace_complete'));
   } catch (err) {
-    log(`COMPUTE FAULT: ${err.message}`);
+    log(`${t('log_compute_fault')}${err.message}`);
     console.error(err);
   } finally {
     BodyState.set(false);
@@ -551,7 +812,7 @@ const GsapEngine = {
     Store.playing = false;
     Store.paused = true;
     setPlayIcon(false);
-    log(`TIMELINE DONE [GSAP] // ${this.layers.length} LAYERS`);
+    log(fmt(t('log_timeline_done'), { n: this.layers.length }));
   },
 
   replay() {
@@ -603,7 +864,7 @@ function gsapPlay() {
   stopTimer();
 
   const eff = GsapEngine.total / (Number($('animSpeed').value) || 1);
-  log(`TIMELINE RUNNING [GSAP] // ${anim.layerCount} LAYERS · ${eff.toFixed(1)}s · scrub可用`);
+  log(fmt(t('log_timeline_gsap'), { n: anim.layerCount, s: eff.toFixed(1) }));
 }
 
 /* ---------- 8. 播放器 ---------- */
@@ -641,7 +902,7 @@ function playAnimation() {
     else { Store.playing = false; Store.paused = true; setPlayIcon(false); }
   }, effective * 1000);
 
-  log(`TIMELINE RUNNING // ${anim.layerCount} LAYERS · ${effective.toFixed(1)}s`);
+  log(fmt(t('log_timeline_css'), { n: anim.layerCount, s: effective.toFixed(1) }));
 }
 
 function togglePlay() {
@@ -833,7 +1094,7 @@ function initExporters() {
   $('dlpng').addEventListener('click', () => {
     if (!Store.svg || !Store.src) return;
     const scale = Number($('pngscale').value);
-    log('RENDERING PNG OFFSCREEN...', true);
+    log(t('log_png_rendering'), true);
     const url = URL.createObjectURL(new Blob([Store.svg], { type: 'image/svg+xml;charset=utf-8' }));
     const img = new Image();
     img.onload = () => {
@@ -844,11 +1105,11 @@ function initExporters() {
       ctx.drawImage(img, 0, 0, cv.width, cv.height);
       URL.revokeObjectURL(url);
       cv.toBlob((b) => {
-        if (b) { downloadBlob(`vectorpulse-${cv.width}x${cv.height}.png`, b, 'image/png'); log(`PNG EXPORTED: ${cv.width}×${cv.height}`); }
-        else log('PNG RENDER FAILED');
+        if (b) { downloadBlob(`vectorpulse-${cv.width}x${cv.height}.png`, b, 'image/png'); log(`${t('log_png_exported')}${cv.width}×${cv.height}`); }
+        else log(t('log_png_failed'));
       }, 'image/png');
     };
-    img.onerror = () => { URL.revokeObjectURL(url); log('PNG RENDER FAILED'); };
+    img.onerror = () => { URL.revokeObjectURL(url); log(t('log_png_failed')); };
     img.src = url;
   });
 }
@@ -862,14 +1123,14 @@ function initModal() {
   $('closeCodeModal').addEventListener('click', close);
   modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
   $('copySvgCode').addEventListener('click', async () => {
-    try { await navigator.clipboard.writeText(Store.svg); log('SVG CODE COPIED'); }
-    catch (_) { log('CLIPBOARD BLOCKED'); }
+    try { await navigator.clipboard.writeText(Store.svg); log(t('log_svg_copied')); }
+    catch (_) { log(t('log_clipboard_blocked')); }
   });
   $('copySvgDataUri').addEventListener('click', async () => {
     try {
       const uri = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(Store.svg)));
-      await navigator.clipboard.writeText(uri); log('DATA URI COPIED');
-    } catch (_) { log('CLIPBOARD BLOCKED'); }
+      await navigator.clipboard.writeText(uri); log(t('log_uri_copied'));
+    } catch (_) { log(t('log_clipboard_blocked')); }
   });
 }
 
@@ -894,12 +1155,8 @@ function bootstrap() {
   // 进度 UI 二选一：全局 [hidden] 是 !important，CSS 覆盖抢不过，必须 JS 摘属性
   $('scrub').hidden = eng !== 'gsap';
   $('progressWrap').hidden = eng === 'gsap';
-  const hint = $('engineHint');
-  if (hint) {
-    hint.textContent = eng === 'gsap'
-      ? 'ENGINE: GSAP TIMELINE · scrub / 变速 / 笔尖跟随已就绪'
-      : 'ENGINE: CSS FALLBACK · CDN 未加载，已自动降级';
-  }
+  initI18n();
+  refreshEngineHint();
   initParams();
   initUploadChannels();
   initViews();
@@ -909,6 +1166,7 @@ function bootstrap() {
   initShortcuts();
   setView('side');
   BodyState.set(false);
+  refreshDynamicI18n();
 
   window.addEventListener('resize', schedulePreviewResizeDebounced);
   if ('ResizeObserver' in window && $('stageViewport')) {

@@ -578,6 +578,32 @@ body[data-engine="gsap"] .playing .anim-progress-inner { animation: none; }
   border-top: 2px solid var(--hw-border);
 }
 
+/* ---- 右下角语言切换悬浮钮 ---- */
+.lang-toggle {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  z-index: 90;
+  min-width: 52px;
+  min-height: 34px;
+  padding: 6px 14px;
+  font: 800 12px var(--font-mono);
+  letter-spacing: .06em;
+  color: var(--hw-text);
+  background: var(--hw-panel);
+  border: 2px solid var(--hw-border);
+  border-radius: var(--radius);
+  box-shadow: var(--hw-shadow-sm);
+  cursor: pointer;
+  transition: transform .08s, box-shadow .08s, background .12s;
+}
+.lang-toggle:hover { background: #fff; }
+.lang-toggle:active { transform: translate(2px, 2px); box-shadow: none; }
+.lang-toggle.on {
+  background: var(--hw-orange);
+  color: #fff;
+}
+
 /* ---- 断点 ---- */
 @media (min-width: 1500px) {
   .rack-center { padding: 12px 28px; }
