@@ -578,31 +578,29 @@ body[data-engine="gsap"] .playing .anim-progress-inner { animation: none; }
   border-top: 2px solid var(--hw-border);
 }
 
-/* ---- 右下角语言切换悬浮钮 ---- */
+/* ---- 右上语言切换（徽章组首位，橙色强调凸显） ---- */
+.header-badges { align-items: center; }
 .lang-toggle {
-  position: fixed;
-  right: 14px;
-  bottom: 14px;
-  z-index: 90;
-  min-width: 52px;
-  min-height: 34px;
-  padding: 6px 14px;
-  font: 800 12px var(--font-mono);
-  letter-spacing: .06em;
-  color: var(--hw-text);
-  background: var(--hw-panel);
-  border: 2px solid var(--hw-border);
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 4px 12px;
+  font: 800 11px var(--font-mono);
+  letter-spacing: .08em;
+  color: var(--hw-orange);
+  background: #fff;
+  border: 2px solid var(--hw-orange);
   border-radius: var(--radius);
-  box-shadow: var(--hw-shadow-sm);
+  box-shadow: 1.5px 1.5px 0 var(--hw-border);
   cursor: pointer;
-  transition: transform .08s, box-shadow .08s, background .12s;
+  white-space: nowrap;
+  transition: transform .08s, box-shadow .08s, background .12s, color .12s;
 }
-.lang-toggle:hover { background: #fff; }
+.lang-toggle:hover { background: var(--hw-orange); color: #fff; }
 .lang-toggle:active { transform: translate(2px, 2px); box-shadow: none; }
 .lang-toggle.on {
   background: var(--hw-orange);
   color: #fff;
 }
+.lang-toggle.on:hover { background: var(--hw-orange-hi); }
 
 /* ---- 断点 ---- */
 @media (min-width: 1500px) {
@@ -634,7 +632,7 @@ body[data-engine="gsap"] .playing .anim-progress-inner { animation: none; }
 }
 @media (max-width: 640px) {
   .rack-left, .rack-right { grid-template-columns: 1fr; }
-  .header-badges .badge:first-child { display: none; }
+  .header-badges .badge:first-of-type { display: none; }
   .side-wrap { flex-direction: column; max-height: none; }
   .stage-viewport { min-height: 40vh; }
 }
